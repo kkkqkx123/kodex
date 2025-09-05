@@ -56,7 +56,7 @@
 - `review` - 代码审查
 - `todo` - 待办事项管理
 - `doctor` - 系统诊断
-- `context` - 上下文管理
+- `context` - 上下文导出
 
 #### 身份验证命令
 - `login` - 用户登录
