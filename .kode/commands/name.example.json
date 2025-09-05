@@ -1,0 +1,12 @@
+{
+  "name": "bug",
+  "description": "Report a bug with detailed context and reproduction steps",
+  "enabled": true,
+  "requiresReasoning": true,
+  "prompt": "I need to report a bug. Please help me create a comprehensive bug report with the following structure:\n\n## Bug Description\nA clear and concise description of what the bug is.\n\n## Steps to Reproduce\n1. Step one\n2. Step two\n3. Step three\n\n## Expected Behavior\nWhat you expected to happen.\n\n## Actual Behavior\nWhat actually happened.\n\n## Environment\n- OS: [e.g. Windows 11]\n- Browser: [e.g. Chrome 120]\n- Version: [e.g. 1.2.3]\n\n## Additional Context\nAny other context about the problem here.",
+  "customSettings": {
+    "template": "github",
+    "includeStackTrace": true,
+    "autoLabel": "bug"
+  }
+}

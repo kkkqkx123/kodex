@@ -1,0 +1,3 @@
+架构设计见docs\architecture目录
+使用说明见docs\user-guide目录
+TUI相关内容位于docs\TUI目录

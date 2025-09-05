@@ -1,0 +1,36 @@
+# Kode ignore rules
+# 这些规则会在目录扫描时被应用
+
+# 忽略构建产物
+dist/
+build/
+coverage/
+
+# 忽略依赖目录
+node_modules/
+
+# 忽略缓存和临时文件
+.cache/
+.temp/
+.tmp/
+
+# 忽略日志文件
+*.log
+logs/
+
+# 忽略环境配置文件
+.env*
+!.env.example
+
+# 忽略IDE配置
+.vscode/
+.idea/
+.DS_Store
+
+# 忽略测试报告
+test-results/
+playwright-report/
+
+# 忽略打包文件
+*.tgz
+*.tar.gz
