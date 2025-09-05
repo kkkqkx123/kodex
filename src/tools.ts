@@ -17,6 +17,8 @@ import { NotebookReadTool } from './tools/NotebookReadTool/NotebookReadTool'
 import { ThinkTool } from './tools/ThinkTool/ThinkTool'
 import { TodoWriteTool } from './tools/TodoWriteTool/TodoWriteTool'
 import { ContextCompactTool } from './tools/ContextCompactTool/ContextCompactTool'
+import { URLFetcherTool } from './tools/URLFetcherTool/URLFetcherTool'
+import { WebSearchTool } from './tools/WebSearchTool/WebSearchTool'
 import { getMCPTools } from './services/mcpClient'
 import { memoize } from 'lodash-es'
 
@@ -40,6 +42,8 @@ export const getAllTools = (): Tool[] => {
     ThinkTool as unknown as Tool,
     TodoWriteTool as unknown as Tool,
     ContextCompactTool as unknown as Tool,
+    URLFetcherTool as unknown as Tool,
+    WebSearchTool as unknown as Tool,
     ...ANT_ONLY_TOOLS,
   ]
 }
