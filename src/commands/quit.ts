@@ -1,5 +1,6 @@
 import type { Command } from '../commands'
 import { formatTotalCost } from '../cost-tracker'
+import { tokenAccumulator } from '../utils/tokenAccumulator'
 
 const quit = {
   type: 'local',
@@ -9,6 +10,11 @@ const quit = {
   isHidden: false,
   async call() {
     const costInfo = formatTotalCost()
+    const tokenStats = tokenAccumulator.formatStatistics()
+    
+    // Combine cost info and token statistics
+    const combinedInfo = `${costInfo}\n\n${tokenStats}`
+    
     // Clear input and terminal line before exiting
     if (process.stdout.isTTY) {
       process.stdout.write('\r\x1b[K')
@@ -17,7 +23,7 @@ const quit = {
     setTimeout(() => {
       process.exit(0)
     }, 100)
-    return costInfo
+    return combinedInfo
   },
   userFacingName() {
     return 'quit'

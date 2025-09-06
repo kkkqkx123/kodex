@@ -1,5 +1,7 @@
 # Statsig 服务分析文档
 
+现在已经被src\services\featureFlags.ts代替
+
 ## 概述
 
 Statsig 是 Kode 项目中用于功能开关管理和事件追踪的服务模块，基于 @statsig/js-client 库实现。

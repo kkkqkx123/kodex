@@ -8,6 +8,7 @@ import { createHash, randomUUID, UUID } from 'crypto'
 import 'dotenv/config'
 
 import { addToTotalCost } from '../cost-tracker'
+import { tokenAccumulator } from '../utils/tokenAccumulator'
 import models from '../constants/models'
 import type { AssistantMessage, UserMessage } from '../query'
 import { Tool } from '../Tool'
@@ -1648,6 +1649,17 @@ async function queryAnthropicNative(
 
     assistantMessage.costUSD = costUSD
     addToTotalCost(costUSD, durationMs)
+    
+    // Add to token accumulator for detailed statistics
+    tokenAccumulator.addTokenUsage({
+      inputTokens,
+      outputTokens,
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+      costUSD,
+      durationMs,
+      model,
+    })
 
     logEvent('api_response_anthropic_native', {
       model,
@@ -1982,6 +1994,17 @@ async function queryOpenAI(
       SONNET_COST_PER_MILLION_PROMPT_CACHE_WRITE_TOKENS
 
   addToTotalCost(costUSD, durationMsIncludingRetries)
+  
+  // Add to token accumulator for detailed statistics
+  tokenAccumulator.addTokenUsage({
+    inputTokens,
+    outputTokens,
+    cacheReadInputTokens,
+    cacheCreationInputTokens,
+    costUSD,
+    durationMs: durationMsIncludingRetries,
+    model,
+  })
 
   // 记录完整的 LLM 交互调试信息 (OpenAI path)
   logLLMInteraction({
@@ -2022,7 +2045,7 @@ function getMaxTokensFromProfile(modelProfile: any): number {
   return modelProfile?.maxTokens || 8000
 }
 
-function getModelInputTokenCostUSD(model: string): number {
+export function getModelInputTokenCostUSD(model: string): number {
   // Find the model in the models object
   for (const providerModels of Object.values(models)) {
     const modelInfo = providerModels.find((m: any) => m.model === model)
@@ -2034,7 +2057,7 @@ function getModelInputTokenCostUSD(model: string): number {
   return 0.000003 // Default to Claude 3 Haiku cost
 }
 
-function getModelOutputTokenCostUSD(model: string): number {
+export function getModelOutputTokenCostUSD(model: string): number {
   // Find the model in the models object
   for (const providerModels of Object.values(models)) {
     const modelInfo = providerModels.find((m: any) => m.model === model)

@@ -4,6 +4,7 @@ import { ProxyAgent, fetch, Response } from 'undici'
 import { setSessionState, getSessionState } from '../utils/sessionState'
 import { logEvent } from '../services/featureFlags'
 import { debug as debugLogger, getCurrentRequest } from '../utils/debugLogger'
+import { tokenAccumulator } from '../utils/tokenAccumulator'
 
 // Helper function to calculate retry delay with exponential backoff
 function getRetryDelay(attempt: number, retryAfter?: string | null): number {
@@ -795,6 +796,21 @@ export async function getCompletionWithProfile(
     }
 
     const responseData = (await response.json()) as OpenAI.ChatCompletion
+    
+    // Add token usage statistics
+    if (responseData.usage) {
+      const duration = Date.now() - (getCurrentRequest()?.startTime || Date.now())
+      tokenAccumulator.addTokenUsage({
+        inputTokens: responseData.usage.prompt_tokens || 0,
+        outputTokens: responseData.usage.completion_tokens || 0,
+        cacheReadInputTokens: responseData.usage.prompt_tokens_details?.cached_tokens || 0,
+        cacheCreationInputTokens: 0, // Not available in standard OpenAI response
+        costUSD: 0, // Will be calculated based on model pricing
+        durationMs: Math.max(duration, 0),
+        model: opts.model || 'unknown'
+      })
+    }
+    
     return responseData
   } catch (error) {
     // 🔧 CRITICAL FIX: Check abort signal BEFORE showing retry message
@@ -878,6 +894,21 @@ export function createStreamProcessor(
 
             try {
               const parsed = JSON.parse(data) as OpenAI.ChatCompletionChunk
+              
+              // Add token usage statistics for streaming responses
+              if (parsed.usage) {
+                const duration = Date.now() - (getCurrentRequest()?.startTime || Date.now())
+                tokenAccumulator.addTokenUsage({
+                  inputTokens: parsed.usage.prompt_tokens || 0,
+                  outputTokens: parsed.usage.completion_tokens || 0,
+                  cacheReadInputTokens: parsed.usage.prompt_tokens_details?.cached_tokens || 0,
+                  cacheCreationInputTokens: 0, // Not available in streaming response
+                  costUSD: 0, // Will be calculated based on model pricing
+                  durationMs: Math.max(duration, 0),
+                  model: 'unknown' // Model info not available in chunk
+                })
+              }
+              
               yield parsed
             } catch (e) {
               console.error('Error parsing JSON:', data, e)
@@ -898,6 +929,21 @@ export function createStreamProcessor(
 
             try {
               const parsed = JSON.parse(data) as OpenAI.ChatCompletionChunk
+              
+              // Add token usage statistics for final streaming responses
+              if (parsed.usage) {
+                const duration = Date.now() - (getCurrentRequest()?.startTime || Date.now())
+                tokenAccumulator.addTokenUsage({
+                  inputTokens: parsed.usage.prompt_tokens || 0,
+                  outputTokens: parsed.usage.completion_tokens || 0,
+                  cacheReadInputTokens: parsed.usage.prompt_tokens_details?.cached_tokens || 0,
+                  cacheCreationInputTokens: 0, // Not available in streaming response
+                  costUSD: 0, // Will be calculated based on model pricing
+                  durationMs: Math.max(duration, 0),
+                  model: 'unknown' // Model info not available in chunk
+                })
+              }
+              
               yield parsed
             } catch (e) {
               console.error('Error parsing final JSON:', data, e)
@@ -1032,7 +1078,21 @@ export async function callGPT5ResponsesAPI(
       throw new Error(`GPT-5 Responses API error: ${response.status} ${response.statusText}`)
     }
 
-    const responseData = await response.json()
+    const responseData = await response.json() as any
+
+    // Add token usage statistics for GPT-5 Responses API
+    if (responseData.usage) {
+      const duration = Date.now() - (getCurrentRequest()?.startTime || Date.now())
+      tokenAccumulator.addTokenUsage({
+        inputTokens: responseData.usage.input_tokens || 0,
+        outputTokens: responseData.usage.output_tokens || 0,
+        cacheReadInputTokens: responseData.usage.input_tokens_details?.cached_tokens || 0,
+        cacheCreationInputTokens: 0, // Not available in standard response
+        costUSD: 0, // Will be calculated based on model pricing
+        durationMs: Math.max(duration, 0),
+        model: opts.model || 'unknown'
+      })
+    }
 
     // Convert Responses API response back to Chat Completion format for compatibility
     return convertResponsesAPIToChatCompletion(responseData)
