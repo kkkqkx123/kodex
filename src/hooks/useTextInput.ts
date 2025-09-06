@@ -250,21 +250,19 @@ export function useTextInput({
       }
       return
     }
-    // Handle regular character input
-    if (input && !key.meta && !key.ctrl && !key.escape && !key.return &&
-        !key.backspace && !key.delete && !key.tab && !key.upArrow &&
-        !key.downArrow && !key.leftArrow && !key.rightArrow) {
-      // Additional check to ensure this is a regular character
-      if (input.length === 1 || input === '\n' || input === '\r') {
-        const currentCursor = getCursor()
-        const nextCursor = currentCursor.insert(input.replace(/\r/g, '\n'))
-        if (!currentCursor.equals(nextCursor)) {
-          // 先更新文本，再更新光标位置
-          onChange(nextCursor.text)
-          setOffset(nextCursor.offset)
-        }
-        return
+    // Handle regular character input and paste/IME input
+    // Check if this is likely regular text input (including paste/IME)
+    if (input && !key.meta && !key.ctrl && !key.escape) {
+      // For paste/IME input, we might get multiple characters or special characters
+      // We should process them as regular input insertion
+      const currentCursor = getCursor()
+      const nextCursor = currentCursor.insert(input.replace(/\r/g, '\n'))
+      if (!currentCursor.equals(nextCursor)) {
+        // 先更新文本，再更新光标位置
+        onChange(nextCursor.text)
+        setOffset(nextCursor.offset)
       }
+      return
     }
     
     // Only process through mapKey for special keys that weren't handled above

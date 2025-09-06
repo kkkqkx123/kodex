@@ -235,7 +235,8 @@ export default function TextInput({
     // that we would see e.g. 1024 characters and then just a few
     // more in the next frame that belong with the original paste.
     // This batching number is not consistent.
-    if (onPaste && (input.length > 800 || pasteState.timeoutId)) {
+    // Only handle paste for significantly large inputs, not for normal IME input
+    if (onPaste && input.length > 2000) {
       setPasteState(({ chunks, timeoutId }) => {
         return {
           chunks: [...chunks, input],

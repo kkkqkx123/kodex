@@ -12,6 +12,7 @@ import { MessageResponse } from '../components/MessageResponse'
 import { Spinner } from '../components/Spinner'
 import { MessageContainer } from './REPL/MessageContainer'
 import { CostThresholdDialog } from '../components/CostThresholdDialog'
+import { AgentProgressIndicator } from '../components/AgentProgressIndicator'
 import { useApiKeyVerification } from '../hooks/useApiKeyVerification'
 import { useCancelRequest } from '../hooks/useCancelRequest'
 import { useLogMessages } from '../hooks/useLogMessages'
@@ -360,6 +361,7 @@ const messagesJSX = useMemo(() => <MessageContainer {...messageRendererProps} />
   return (
     <PermissionProvider isBypassPermissionsModeAvailable={!safeMode} children={undefined}>
       <ModeIndicator />
+      <AgentProgressIndicator />
       {messagesJSX}
       <ToolUIRenderer toolUIManagerProps={toolUIManagerProps} />
       <DialogManager {...dialogManagerProps} />

@@ -9,6 +9,15 @@ export type SetToolJSXFn = (jsx: {
   shouldHidePromptInput: boolean
 } | null) => void
 
+export interface ProgressInfo {
+  current: number
+  total: number
+  message?: string
+  percentage?: number
+}
+
+export type ProgressCallback = (progress: ProgressInfo) => void
+
 export interface ToolUseContext {
   messageId: string | undefined
   agentId?: string
@@ -79,4 +88,7 @@ export interface Tool<
     void,
     unknown
   >
+  // Progress support methods
+  supportsProgress?: boolean
+  progress?: (context: ToolUseContext) => Promise<ProgressInfo>
 }

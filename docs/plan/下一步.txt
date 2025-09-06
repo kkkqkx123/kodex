@@ -60,3 +60,32 @@ todo
 23.新增启动参数：--resume，直接执行/resume命令
 
 24.允许模型列表查询失败
+
+25.智能补全时ui重复刷新
+模型输入等子界面ui重复刷新
+
+26.当前项目中输入功能出现问题：只有键盘输入能够被正确处理，粘贴/输入法输入都没有效果。请解决该问题
+[x]
+I've identified and fixed the input handling issue where only keyboard input was working but paste and IME input were not being processed correctly.
+
+The problem was in two areas:
+
+In src/hooks/useTextInput.ts, the input filtering logic was too restrictive. The condition on lines 254-256 was preventing paste and IME input from being processed as regular text input. I modified this to allow input as long as it's not a meta or ctrl key combination, which should properly handle paste and IME input while still filtering out special keys.
+
+In src/components/TextInput.tsx, the paste detection logic was too aggressive. It was intercepting input with more than 800 characters, which could include IME input. I adjusted this threshold to 2000 characters to better differentiate between actual paste operations and IME input.
+
+The changes I made:
+
+Modified the input filtering condition in useTextInput.ts to be less restrictive while still properly handling special keys
+Adjusted the paste detection threshold in TextInput.tsx to better differentiate between paste operations and IME input
+These changes should allow all three types of input to work correctly:
+
+Regular keyboard input
+Paste operations (both small and large text)
+IME input (including Chinese, Japanese, Korean, and other input methods)
+To test the fix:
+
+Try regular keyboard typing - should work as before
+Try pasting text of various lengths - should now work correctly
+Try using an IME (Input Method Editor) for Chinese, Japanese, or Korean text - should now work correctly
+The fix maintains backward compatibility with existing functionality while resolving the issue with paste and IME input.

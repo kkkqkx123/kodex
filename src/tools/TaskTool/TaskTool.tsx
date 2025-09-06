@@ -5,7 +5,7 @@ import { EOL } from 'os'
 import React, { useState, useEffect } from 'react'
 import { Box, Text } from 'ink'
 import { z } from 'zod'
-import { Tool, ValidationResult } from '../../Tool'
+import { Tool, ValidationResult, ProgressInfo } from '../../Tool'
 import { FallbackToolUseRejectedMessage } from '../../components/FallbackToolUseRejectedMessage'
 import { getAgentPrompt } from '../../constants/prompts'
 import { getContext } from '../../context'
@@ -53,6 +53,20 @@ const inputSchema = z.object({
     ),
 })
 
+// Global progress tracking for active tasks
+const activeTasks = new Map<string, {
+  description: string
+  agentType: string
+  progress: number
+  message?: string
+  startTime: number
+}>()
+
+// Export getter for active tasks to enable progress monitoring
+export function getActiveTasks() {
+  return activeTasks
+}
+
 export const TaskTool = {
   async prompt({ safeMode }) {
     // Match original Claude Code - prompt returns full agent descriptions
@@ -64,6 +78,7 @@ export const TaskTool = {
     return "Launch a new task"
   },
   inputSchema,
+  supportsProgress: true,
   
   async *call(
     { description, prompt, model_name, subagent_type },
@@ -162,6 +177,14 @@ export const TaskTool = {
     // Generate unique Task ID for this task execution
     const taskId = generateAgentId()
 
+    // Register task for progress tracking
+    activeTasks.set(taskId, {
+      description,
+      agentType,
+      progress: 0,
+      startTime: Date.now()
+    })
+
     // 🔧 ULTRA SIMPLIFIED: Exact original AgentTool pattern
     // Build query options, adding temperature if specified
     const queryOptions = {
@@ -183,6 +206,13 @@ export const TaskTool = {
     // Create a setToolJSX function for the ExtendedToolUseContext
     const setToolJSX = () => {}; // No-op function since we don't need it in this context
     
+    // Update progress to show task is starting
+    const startingTask = activeTasks.get(taskId)
+    if (startingTask) {
+      startingTask.progress = 10
+      startingTask.message = 'Initializing task...'
+    }
+
     for await (const message of query(
       messages,
       taskPrompt,
@@ -210,12 +240,27 @@ export const TaskTool = {
 
       const normalizedMessages = normalizeMessages(messages)
       
+      // Update progress based on tool usage count
+      if (toolUseCount > 0) {
+        const progressTask = activeTasks.get(taskId)
+        if (progressTask) {
+          progressTask.progress = Math.min(50 + (toolUseCount * 10), 90)
+          progressTask.message = `Processing... (${toolUseCount} tool uses)`
+        }
+      }
+      
       // Process tool uses and text content for better visibility
       for (const content of message.message.content) {
         if (content.type === 'text' && content.text && content.text !== INTERRUPT_MESSAGE) {
           // Show agent's reasoning/responses
           const preview = content.text.length > 200 ? content.text.substring(0, 200) + '...' : content.text
-          // Progress updates are not supported by the Tool interface, so we skip them
+          
+          // Update progress to show agent is working
+          const workingTask = activeTasks.get(taskId)
+          if (workingTask) {
+            workingTask.progress = Math.min(workingTask.progress + 5, 95)
+            workingTask.message = 'Agent working on task...'
+          }
         } else if (content.type === 'tool_use') {
           toolUseCount++
           
@@ -246,7 +291,12 @@ export const TaskTool = {
               }
             }
             
-            // Progress updates are not supported by the Tool interface, so we skip them
+            // Update progress to show tool usage
+            const toolTask = activeTasks.get(taskId)
+            if (toolTask) {
+              toolTask.progress = Math.min(60 + (toolUseCount * 5), 95)
+              toolTask.message = `Using tool: ${content.name}`
+            }
           }
         }
       }
@@ -277,6 +327,18 @@ export const TaskTool = {
         formatDuration(Date.now() - startTime),
       ]
       // Progress updates are not supported by the Tool interface, so we skip them
+    }
+
+    // Mark task as completed
+    const task = activeTasks.get(taskId)
+    if (task) {
+      task.progress = 100
+      task.message = 'Task completed'
+      
+      // Clean up after a delay
+      setTimeout(() => {
+        activeTasks.delete(taskId)
+      }, 5000)
     }
 
     // Output is an AssistantMessage, but since TaskTool is a tool, it needs
@@ -441,5 +503,32 @@ export const TaskTool = {
         <Text color={theme.secondaryText}>Task completed</Text>
       </Box>
     )
+  },
+
+  async progress(context) {
+    // Return current progress information for all active tasks
+    const tasks: ProgressInfo[] = []
+    
+    for (const [taskId, taskInfo] of activeTasks) {
+      tasks.push({
+        current: taskInfo.progress,
+        total: 100,
+        message: taskInfo.message,
+        percentage: taskInfo.progress
+      })
+    }
+    
+    // If no active tasks, return empty progress
+    if (tasks.length === 0) {
+      return {
+        current: 0,
+        total: 100,
+        percentage: 0,
+        message: 'No active tasks'
+      }
+    }
+    
+    // For now, return the first task's progress (can be enhanced for multiple tasks)
+    return tasks[0]
   },
 } satisfies Tool<typeof inputSchema, TextBlock[]>
