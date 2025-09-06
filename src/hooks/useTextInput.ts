@@ -72,7 +72,8 @@ export function useTextInput({
 }: UseTextInputProps): UseTextInputResult {
   const offset = externalOffset
   const setOffset = onOffsetChange
-  const cursor = Cursor.fromText(originalValue, columns, offset)
+  // Create cursor dynamically to ensure it always uses the latest offset
+  const getCursor = () => Cursor.fromText(originalValue, columns, offset)
   const [imagePasteErrorTimeout, setImagePasteErrorTimeout] =
     useState<NodeJS.Timeout | null>(null)
 
@@ -122,20 +123,20 @@ export function useTextInput({
 
   function handleCtrlD(): MaybeCursor {
     maybeClearImagePasteErrorTimeout()
-    if (cursor.text === '') {
+    if (getCursor().text === '') {
       // When input is empty, handle double-press
       handleEmptyCtrlD()
-      return cursor
+      return getCursor()
     }
     // When input is not empty, delete forward like iPython
-    return cursor.del()
+    return getCursor().del()
   }
 
   function tryImagePaste() {
     const base64Image = getImageFromClipboard()
     if (base64Image === null) {
       if (process.platform !== 'darwin') {
-        return cursor
+        return getCursor()
       }
       onMessage?.(true, CLIPBOARD_ERROR_MESSAGE)
       maybeClearImagePasteErrorTimeout()
@@ -144,52 +145,52 @@ export function useTextInput({
           onMessage?.(false)
         }, 4000),
       )
-      return cursor
+      return getCursor()
     }
 
     onImagePaste?.(base64Image)
-    return cursor.insert(IMAGE_PLACEHOLDER)
+    return getCursor().insert(IMAGE_PLACEHOLDER)
   }
 
   const handleCtrl = mapInput([
-    ['a', () => cursor.startOfLine()],
-    ['b', () => cursor.left()],
+    ['a', () => getCursor().startOfLine()],
+    ['b', () => getCursor().left()],
     ['c', handleCtrlC],
     ['d', handleCtrlD],
-    ['e', () => cursor.endOfLine()],
-    ['f', () => cursor.right()],
+    ['e', () => getCursor().endOfLine()],
+    ['f', () => getCursor().right()],
     [
       'h',
       () => {
         maybeClearImagePasteErrorTimeout()
-        return cursor.backspace()
+        return getCursor().backspace()
       },
     ],
-    ['k', () => cursor.deleteToLineEnd()],
+    ['k', () => getCursor().deleteToLineEnd()],
     ['l', () => clear()],
     ['n', () => downOrHistoryDown()],
     ['p', () => upOrHistoryUp()],
-    ['u', () => cursor.deleteToLineStart()],
+    ['u', () => getCursor().deleteToLineStart()],
     ['v', tryImagePaste],
-    ['w', () => cursor.deleteWordBefore()],
+    ['w', () => getCursor().deleteWordBefore()],
   ])
 
   const handleMeta = mapInput([
-    ['b', () => cursor.prevWord()],
-    ['f', () => cursor.nextWord()],
-    ['d', () => cursor.deleteWordAfter()],
+    ['b', () => getCursor().prevWord()],
+    ['f', () => getCursor().nextWord()],
+    ['d', () => getCursor().deleteWordAfter()],
   ])
 
   function handleEnter(key: Key) {
     if (
       multiline &&
-      cursor.offset > 0 &&
-      cursor.text[cursor.offset - 1] === '\\'
+      getCursor().offset > 0 &&
+      getCursor().text[getCursor().offset - 1] === '\\'
     ) {
-      return cursor.backspace().insert('\n')
+      return getCursor().backspace().insert('\n')
     }
     if (key.meta) {
-      return cursor.insert('\n')
+      return getCursor().insert('\n')
     }
     onSubmit?.(originalValue)
   }
@@ -197,22 +198,22 @@ export function useTextInput({
   function upOrHistoryUp() {
     if (disableCursorMovementForUpDownKeys) {
       onHistoryUp?.()
-      return cursor
+      return getCursor()
     }
-    const cursorUp = cursor.up()
-    if (cursorUp.equals(cursor)) {
+    const cursorUp = getCursor().up()
+    if (cursorUp.equals(getCursor())) {
       // already at beginning
-      onHistoryUp?.()
+     onHistoryUp?.()
     }
     return cursorUp
   }
   function downOrHistoryDown() {
     if (disableCursorMovementForUpDownKeys) {
       onHistoryDown?.()
-      return cursor
+      return getCursor()
     }
-    const cursorDown = cursor.down()
-    if (cursorDown.equals(cursor)) {
+    const cursorDown = getCursor().down()
+    if (cursorDown.equals(getCursor())) {
       onHistoryDown?.()
     }
     return cursorDown
@@ -230,61 +231,79 @@ export function useTextInput({
       input === '\x7f' ||
       input === '\x08'
     ) {
-      const nextCursor = cursor.backspace()
-      if (!cursor.equals(nextCursor)) {
+      const currentCursor = getCursor()
+      const nextCursor = currentCursor.backspace()
+      if (!currentCursor.equals(nextCursor)) {
+        // 先更新文本，再更新光标位置
+        onChange(nextCursor.text)
         setOffset(nextCursor.offset)
-        if (cursor.text !== nextCursor.text) {
-          onChange(nextCursor.text)
-        }
       }
       return
     }
     if (key.delete) {
-      const nextCursor = cursor.del()
-      if (!cursor.equals(nextCursor)) {
+      const currentCursor = getCursor()
+      const nextCursor = currentCursor.del()
+      if (!currentCursor.equals(nextCursor)) {
+        // 先更新文本，再更新光标位置
+        onChange(nextCursor.text)
         setOffset(nextCursor.offset)
-        if (cursor.text !== nextCursor.text) {
-          onChange(nextCursor.text)
-        }
       }
       return
     }
-
+    // Handle regular character input
+    if (input && !key.meta && !key.ctrl && !key.escape && !key.return &&
+        !key.backspace && !key.delete && !key.tab && !key.upArrow &&
+        !key.downArrow && !key.leftArrow && !key.rightArrow) {
+      // Additional check to ensure this is a regular character
+      if (input.length === 1 || input === '\n' || input === '\r') {
+        const currentCursor = getCursor()
+        const nextCursor = currentCursor.insert(input.replace(/\r/g, '\n'))
+        if (!currentCursor.equals(nextCursor)) {
+          // 先更新文本，再更新光标位置
+          onChange(nextCursor.text)
+          setOffset(nextCursor.offset)
+        }
+        return
+      }
+    }
+    
+    // Only process through mapKey for special keys that weren't handled above
+    // This should only handle special keys, not regular character input
+    const currentCursor = getCursor()
     const nextCursor = mapKey(key)(input)
     if (nextCursor) {
-      if (!cursor.equals(nextCursor)) {
+      if (!currentCursor.equals(nextCursor)) {
+        // 先更新文本，再更新光标位置
+        onChange(nextCursor.text)
         setOffset(nextCursor.offset)
-        if (cursor.text !== nextCursor.text) {
-          onChange(nextCursor.text)
-        }
       }
     }
   }
 
   function mapKey(key: Key): InputMapper {
-    // Direct handling for backspace (delete before cursor) or delete (delete after cursor)
+    // Direct handling for backspace (delete极before cursor) or delete (delete after cursor)
     if (key.backspace) {
       maybeClearImagePasteErrorTimeout()
-      return () => cursor.backspace()
+      return () => getCursor().backspace()
     }
     if (key.delete) {
       maybeClearImagePasteErrorTimeout()
-      return () => cursor.del()
+      return () => getCursor().del()
     }
 
     switch (true) {
       case key.escape:
         return handleEscape
       case key.leftArrow && (key.ctrl || key.meta):
-        return () => cursor.prevWord()
+        return () => getCursor().prevWord()
       case key.rightArrow && (key.ctrl || key.meta):
-        return () => cursor.nextWord()
+        return () => getCursor().nextWord()
       case key.ctrl:
         return handleCtrl
       case key.pageDown:
-        return () => cursor.endOfLine()
+        return () => getCursor().endOfLine()
       case key.pageUp:
-        return () => cursor.startOfLine()
+        return () => getCursor().startOfLine()
       case key.meta:
         return handleMeta
       case key.return:
@@ -295,31 +314,33 @@ export function useTextInput({
       case key.downArrow:
         return downOrHistoryDown
       case key.leftArrow:
-        return () => cursor.left()
+        return () => getCursor().left()
       case key.rightArrow:
-        return () => cursor.right()
+        return () => getCursor().right()
     }
     return function (input: string) {
       switch (true) {
         // Home key
         case input == '\x1b[H' || input == '\x1b[1~':
-          return cursor.startOfLine()
+          return getCursor().startOfLine()
         // End key
         case input == '\x1b[F' || input == '\x1b[4~':
-          return cursor.endOfLine()
+          return getCursor().endOfLine()
         // Handle backspace character explicitly - this is the key fix
         case input === '\b' || input === '\x7f' || input === '\x08':
           maybeClearImagePasteErrorTimeout()
-          return cursor.backspace()
+          return getCursor().backspace()
         default:
-          return cursor.insert(input.replace(/\r/g, '\n'))
+          // Don't handle regular character input here - it should be handled above
+          // in the main onInput function to avoid duplicate processing
+          return getCursor()
       }
     }
   }
 
   return {
     onInput,
-    renderedValue: cursor.render(cursorChar, mask, invert),
+    renderedValue: getCursor().render(cursorChar, mask, invert),
     offset,
     setOffset,
   }

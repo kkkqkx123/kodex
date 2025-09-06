@@ -154,7 +154,6 @@ function PromptInput({
   })
   const [pastedImage, setPastedImage] = useState<string | null>(null)
   const [placeholder, setPlaceholder] = useState('')
-  const [cursorOffset, setCursorOffset] = useState<number>(cursorOffsetProp ?? input.length)
   const [pastedText, setPastedText] = useState<string | null>(null)
 
   // Permission context for mode management
@@ -180,13 +179,12 @@ function PromptInput({
     emptyDirMessage,
   } = useUnifiedCompletion({
     input,
-    cursorOffset,
+    cursorOffset: cursorOffsetProp,
     onInputChange,
-    setCursorOffset: onCursorOffsetChange || setCursorOffset,
+    setCursorOffset: onCursorOffsetChange,
     commands,
     onSubmit,
   })
-
   // Get theme early for memoized rendering
   const theme = getTheme()
 
@@ -486,11 +484,11 @@ function PromptInput({
 
     // Update the input with a visual indicator that text has been pasted
     const newInput =
-      input.slice(0, cursorOffset) + pastedPrompt + input.slice(cursorOffset)
+      input.slice(0, cursorOffsetProp) + pastedPrompt + input.slice(cursorOffsetProp)
     onInputChange(newInput)
 
     // Update cursor position to be after the inserted indicator
-    setCursorOffset(cursorOffset + pastedPrompt.length)
+    onCursorOffsetChange?.(cursorOffsetProp + pastedPrompt.length)
 
     // Still set the pastedText state for actual submission
     setPastedText(text)
@@ -661,8 +659,8 @@ function PromptInput({
             columns={textInputColumns}
             isDimmed={isDisabled || isLoading}
             disableCursorMovementForUpDownKeys={completionActive}
-            cursorOffset={cursorOffset}
-            onChangeCursorOffset={onCursorOffsetChange || setCursorOffset}
+            cursorOffset={cursorOffsetProp}
+            onChangeCursorOffset={onCursorOffsetChange}
             onPaste={onTextPaste}
             onSpecialKey={(input, key) => {
               // Handle Shift+M for model switching

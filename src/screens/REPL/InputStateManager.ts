@@ -68,7 +68,11 @@ export class InputStateManager {
 
   // 便捷方法用于特定状态更新
   setValue(value: string): void {
-    this.updateState(prev => ({ ...prev, value }))
+    this.updateState(prev => ({
+      ...prev,
+      value
+      // 注意：这里不自动更新光标位置，由 useTextInput 负责管理光标位置
+    }))
   }
 
   setOffset(offset: number): void {

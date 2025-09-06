@@ -86,6 +86,7 @@ export function REPL({
   useEffect(() => {
     const unsubscribe = stateManager.subscribeToInputState((inputState) => {
       setInputValue(inputState.value)
+      setCursorOffset(inputState.offset)
     })
     return unsubscribe
   }, [stateManager])
