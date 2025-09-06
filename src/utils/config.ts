@@ -47,6 +47,8 @@ export type ProjectConfig = {
   exampleFilesGeneratedAt?: number
   hasTrustDialogAccepted?: boolean
   hasCompletedProjectOnboarding?: boolean
+  thinkingOrder?: 'thinking_first' | 'tools_first' // 思考内容显示顺序：thinking_first（思考在前）或 tools_first（工具在前）
+  thinkingDisplay?: 'none' | 'full' | 'head_tail' // think内容显示方式：none（不输出）、full（完整输出）、head_tail（输出头尾，中间省略）
 }
 
 const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
@@ -60,6 +62,8 @@ const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   approvedMcprcServers: [],
   rejectedMcprcServers: [],
   hasTrustDialogAccepted: false,
+  thinkingOrder: 'thinking_first', // 默认思考内容在前
+  thinkingDisplay: 'full', // 默认完整输出think内容
 }
 
 function defaultConfigForProject(projectPath: string): ProjectConfig {
@@ -231,6 +235,8 @@ export const PROJECT_CONFIG_KEYS = [
   'enableArchitectTool',
   'hasTrustDialogAccepted',
   'hasCompletedProjectOnboarding',
+  'thinkingOrder',
+  'thinkingDisplay',
 ] as const
 
 export type ProjectConfigKey = (typeof PROJECT_CONFIG_KEYS)[number]

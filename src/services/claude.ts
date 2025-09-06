@@ -16,6 +16,7 @@ import {
   getAnthropicApiKey,
   getOrCreateUserID,
   getGlobalConfig,
+  getCurrentProjectConfig,
   ModelProfile,
 } from '../utils/config'
 import { getProjectDocs } from '../context'
@@ -784,45 +785,110 @@ function convertOpenAIResponseToAnthropic(response: OpenAI.ChatCompletion, tools
     }
   }
 
-  if (message?.tool_calls) {
-    for (const toolCall of message.tool_calls) {
-      // 确保toolCall是ChatCompletionMessageFunctionToolCall类型
-      if ('function' in toolCall) {
-        const functionToolCall = toolCall as ChatCompletionMessageToolCall & { function: { name: string; arguments: string } };
-        const tool = functionToolCall.function
-        const toolName = tool?.name
-        let toolArgs = {}
-        try {
-          toolArgs = tool?.arguments ? JSON.parse(tool.arguments) : {}
-        } catch (e) {
-          // Invalid JSON in tool arguments
-        }
+  // Get project config to determine thinking order and display mode
+  const projectConfig = getCurrentProjectConfig()
+  const thinkingOrder = projectConfig.thinkingOrder || 'thinking_first'
+  const thinkingDisplay = projectConfig.thinkingDisplay || 'full'
 
+  // Process content blocks based on configured order
+  if (thinkingOrder === 'thinking_first') {
+    // Process thinking content first
+    if ((message as any).reasoning && thinkingDisplay !== 'none') {
+      const thinkingContent = formatThinkingContent((message as any).reasoning, thinkingDisplay)
+      if (thinkingContent) {
         contentBlocks.push({
-          type: 'tool_use',
-          input: toolArgs,
-          name: toolName,
-          id: functionToolCall.id?.length > 0 ? functionToolCall.id : nanoid(),
+          type: 'thinking',
+          thinking: thinkingContent,
+          signature: '',
         })
       }
     }
-  }
 
-  if ((message as any).reasoning) {
-    contentBlocks.push({
-      type: 'thinking',
-      thinking: (message as any).reasoning,
-      signature: '',
-    })
-  }
+    // NOTE: For deepseek api, the key for its returned reasoning process is reasoning_content
+    if ((message as any).reasoning_content && thinkingDisplay !== 'none') {
+      const thinkingContent = formatThinkingContent((message as any).reasoning_content, thinkingDisplay)
+      if (thinkingContent) {
+        contentBlocks.push({
+          type: 'thinking',
+          thinking: thinkingContent,
+          signature: '',
+        })
+      }
+    }
 
-  // NOTE: For deepseek api, the key for its returned reasoning process is reasoning_content
-  if ((message as any).reasoning_content) {
-    contentBlocks.push({
-      type: 'thinking',
-      thinking: (message as any).reasoning_content,
-      signature: '',
-    })
+    // Process tool calls after thinking content
+    if (message?.tool_calls) {
+      for (const toolCall of message.tool_calls) {
+        // 确保toolCall是ChatCompletionMessageFunctionToolCall类型
+        if ('function' in toolCall) {
+          const functionToolCall = toolCall as ChatCompletionMessageToolCall & { function: { name: string; arguments: string } };
+          const tool = functionToolCall.function
+          const toolName = tool?.name
+          let toolArgs = {}
+          try {
+            toolArgs = tool?.arguments ? JSON.parse(tool.arguments) : {}
+          } catch (e) {
+            // Invalid JSON in tool arguments
+          }
+
+          contentBlocks.push({
+            type: 'tool_use',
+            input: toolArgs,
+            name: toolName,
+            id: functionToolCall.id?.length > 0 ? functionToolCall.id : nanoid(),
+          })
+        }
+      }
+    }
+  } else {
+    // Process tool calls first
+    if (message?.tool_calls) {
+      for (const toolCall of message.tool_calls) {
+        // 确保toolCall是ChatCompletionMessageFunctionToolCall类型
+        if ('function' in toolCall) {
+          const functionToolCall = toolCall as ChatCompletionMessageToolCall & { function: { name: string; arguments: string } };
+          const tool = functionToolCall.function
+          const toolName = tool?.name
+          let toolArgs = {}
+          try {
+            toolArgs = tool?.arguments ? JSON.parse(tool.arguments) : {}
+          } catch (e) {
+            // Invalid JSON in tool arguments
+          }
+
+          contentBlocks.push({
+            type: 'tool_use',
+            input: toolArgs,
+            name: toolName,
+            id: functionToolCall.id?.length > 0 ? functionToolCall.id : nanoid(),
+          })
+        }
+      }
+    }
+
+    // Process thinking content after tool calls
+    if ((message as any).reasoning && thinkingDisplay !== 'none') {
+      const thinkingContent = formatThinkingContent((message as any).reasoning, thinkingDisplay)
+      if (thinkingContent) {
+        contentBlocks.push({
+          type: 'thinking',
+          thinking: thinkingContent,
+          signature: '',
+        })
+      }
+    }
+
+    // NOTE: For deepseek api, the key for its returned reasoning process is reasoning_content
+    if ((message as any).reasoning_content && thinkingDisplay !== 'none') {
+      const thinkingContent = formatThinkingContent((message as any).reasoning_content, thinkingDisplay)
+      if (thinkingContent) {
+        contentBlocks.push({
+          type: 'thinking',
+          thinking: thinkingContent,
+          signature: '',
+        })
+      }
+    }
   }
 
   if (message.content) {
@@ -843,6 +909,36 @@ function convertOpenAIResponseToAnthropic(response: OpenAI.ChatCompletion, tools
 
 
   return finalMessage
+}
+
+/**
+ * Format thinking content based on display mode
+ * @param content Original thinking content
+ * @param displayMode Display mode: 'none', 'full', or 'head_tail'
+ * @returns Formatted thinking content or empty string if should be hidden
+ */
+function formatThinkingContent(content: string, displayMode: 'none' | 'full' | 'head_tail'): string {
+  if (displayMode === 'none') {
+    return ''
+  }
+  
+  if (displayMode === 'full') {
+    return content
+  }
+  
+  // head_tail mode: show first and last parts, omit middle
+  const lines = content.split('\n')
+  if (lines.length <= 6) {
+    // If content is short, show everything
+    return content
+  }
+  
+  // Show first 3 lines, omit middle, show last 3 lines
+  const firstPart = lines.slice(0, 3).join('\n')
+  const lastPart = lines.slice(-3).join('\n')
+  const omittedLines = lines.length - 6
+  
+  return `${firstPart}\n\n... 省略 ${omittedLines} 行 ...\n\n${lastPart}`
 }
 
 let anthropicClient: Anthropic | AnthropicBedrock | AnthropicVertex | null =
