@@ -1,1 +1,0 @@
-tokens累计完全由claude实现。在openai中不需要添加相应模块(因为会转成anthropic，而且加了会导致输出错误的信息)
