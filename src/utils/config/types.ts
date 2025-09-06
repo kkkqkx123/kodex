@@ -143,4 +143,7 @@ export type GlobalConfig = {
 
   // Completion settings
   completionItemsLimit?: number // Maximum number of items to show in completion
+  
+  // Tool error display settings
+  toolErrorDisplay?: 'summary' | 'full' // Tool error display mode: summary (default) or full
 }

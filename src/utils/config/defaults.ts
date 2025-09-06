@@ -41,6 +41,9 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
   
   // Completion settings defaults
   completionItemsLimit: 20, // Default completion items limit
+  
+  // Tool error display settings defaults
+  toolErrorDisplay: 'summary', // Default to summary mode for tool errors
 }
 
 export const GLOBAL_CONFIG_KEYS = [
@@ -56,6 +59,7 @@ export const GLOBAL_CONFIG_KEYS = [
   'shiftEnterKeyBindingInstalled',
   'maxTokens',
   'completionItemsLimit',
+  'toolErrorDisplay',
 ] as const
 
 export const PROJECT_CONFIG_KEYS = [
