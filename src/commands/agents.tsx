@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useReducer, Fragment } from 'react'
+import React from 'react'
 import { Box, Text, useInput } from 'ink'
 import InkTextInput from 'ink-text-input'
 import { getActiveAgents, clearAgentCache } from '../utils/agentLoader'
@@ -17,6 +17,7 @@ import { watch, FSWatcher } from 'fs'
 import { getMCPTools } from '../services/mcpClient'
 import { getModelManager } from '../utils/model'
 import { randomUUID } from 'crypto'
+import { Command } from '../commands'
 
 // Import components from src/agents
 import { Header } from '../agents/components/common/Header'
@@ -27,7 +28,7 @@ import { LoadingSpinner } from '../agents/components/common/LoadingSpinner'
 import { AgentsUI } from '../agents/components/AgentsUI'
 
 // Import utilities from src/agents
-import { 
+import {
   getDisplayModelName,
   generateAgentWithClaude,
   validateAgentType,
@@ -47,7 +48,7 @@ const execAsync = promisify(exec)
 // Core constants aligned with Claude Code architecture
 const AGENT_LOCATIONS = {
   USER: "user",
-  PROJECT: "project", 
+  PROJECT: "project",
   BUILT_IN: "built-in",
   ALL: "all"
 } as const
@@ -55,7 +56,7 @@ const AGENT_LOCATIONS = {
 const UI_ICONS = {
   pointer: "❯",
   checkboxOn: "☑",
-  checkboxOff: "☐", 
+  checkboxOff: "☐",
   warning: "⚠",
   separator: "─",
   loading: "◐◑◒◓"
@@ -81,7 +82,7 @@ type AgentLocation = typeof AGENT_LOCATIONS[keyof typeof AGENT_LOCATIONS]
 
 // Comprehensive mode state for complete UI flow
 type ModeState = {
-  mode: 'list-agents' | 'create-location' | 'create-method' | 'create-generate' | 'create-type' | 
+  mode: 'list-agents' | 'create-location' | 'create-method' | 'create-generate' | 'create-type' |
         'create-description' | 'create-tools' | 'create-model' | 'create-color' | 'create-prompt' | 'create-confirm' |
         'agent-menu' | 'view-agent' | 'edit-agent' | 'edit-tools' | 'edit-model' | 'edit-color' | 'delete-confirm'
   location?: AgentLocation
@@ -118,5 +119,19 @@ type Tool = {
   description?: string | (() => Promise<string>)
 }
 
-// Export the main component
-export default AgentsUI
+// Create the command object that conforms to the Command type
+const agents = {
+  type: 'local-jsx',
+  name: 'agents',
+  description: 'Manage AI agents',
+  isEnabled: true,
+  isHidden: false,
+  async call(onDone) {
+    return <AgentsUI onExit={onDone} />;
+  },
+  userFacingName() {
+    return 'agents';
+  },
+} satisfies Command;
+
+export default agents;
