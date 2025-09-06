@@ -163,7 +163,7 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
     isDefaultModel,
   ])
 
-  return messagesJSX
+  return messagesJSX.map(item => item.jsx)
 }
 
 // Helper function to determine if a message should be rendered statically

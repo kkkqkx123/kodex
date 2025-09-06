@@ -51,3 +51,5 @@ todo
 
 22.重构src\utils\config.ts，将配置信息按模块拆分，放在src\utils\config目录
 [x]
+
+23.新增启动参数：--resume，直接执行/resume命令

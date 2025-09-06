@@ -306,7 +306,7 @@ export function REPL({
     isMessageSelectorVisible: state.isMessageSelectorVisible,
   }
 
-  const messagesJSX = MessageRenderer(messageRendererProps)
+  const messagesJSX = useMemo(() => <MessageRenderer {...messageRendererProps} />, [messageRendererProps])
 
   // Tool UI manager props
   const toolUIManagerProps: ToolUIManagerProps = {
@@ -336,13 +336,8 @@ export function REPL({
     <PermissionProvider isBypassPermissionsModeAvailable={!safeMode} children={undefined}>
       <ModeIndicator />
       <React.Fragment key={`static-messages-${state.forkNumber}`}>
-        <Static items={messagesJSX.filter(_ => _.type === 'static')} children={function (item: unknown, index: number) {
-          throw new Error('Function not implemented.')
-        }}>
-          {item => item.jsx}
-        </Static>
+        {messagesJSX}
       </React.Fragment>
-      {messagesJSX.filter(_ => _.type === 'transient').map(item => item.jsx)}
       <ToolUIRenderer toolUIManagerProps={toolUIManagerProps} />
       <DialogManager {...dialogManagerProps} />
 

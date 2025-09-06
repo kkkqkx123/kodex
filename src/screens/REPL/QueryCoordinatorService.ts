@@ -45,8 +45,6 @@ export class QueryCoordinatorService {
       newMessages[0].type === 'user' &&
       'options' in newMessages[0] &&
       newMessages[0].options?.isKodingRequest === true
-
-    allMessages = [...allMessages, ...newMessages]
     setMessages(allMessages)
 
     // Mark onboarding as complete when any user message is sent to Claude

@@ -19,12 +19,13 @@ export function ToolUseLoader({
 
   useInterval(() => {
     if (!shouldAnimate) {
+      setIsVisible(true)
       return
     }
     // To avoid flickering when the tool use confirm is visible, we set the loader to be visible
     // when the tool use confirm is visible.
     setIsVisible(_ => !_)
-  }, 600)
+  }, shouldAnimate ? 600 : null)
 
   const color = isUnresolved
     ? getTheme().secondaryText
