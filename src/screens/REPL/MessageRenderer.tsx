@@ -29,7 +29,7 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
       {
         type: 'static',
         jsx: (
-          <Box flexDirection="column" key={`logo${forkNumber}`}>
+          <Box flexDirection="column" key="logo">
             <Logo mcpClients={mcpClients} isDefaultModel={isDefaultModel} />
             <ProjectOnboarding workspaceDir={getOriginalCwd()} />
           </Box>

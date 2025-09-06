@@ -78,6 +78,15 @@ export function REPL({
     return unsubscribe
   }, [stateManager])
 
+  // Create direct access to input value
+  const getInputValue = useCallback(() => {
+    return stateManager.getState().inputValue
+  }, [stateManager])
+
+  const setInputValue = useCallback((value: string) => {
+    stateManager.setInputValue(value)
+  }, [stateManager])
+
   // Initialize query coordinator
   const queryCoordinator = useMemo(() => QueryCoordinatorService.getInstance(), [])
 
@@ -306,7 +315,11 @@ export function REPL({
     isMessageSelectorVisible: state.isMessageSelectorVisible,
   }
 
-  const messagesJSX = useMemo(() => <MessageRenderer {...messageRendererProps} />, [messageRendererProps])
+  const messagesJSX = useMemo(() => <MessageRenderer {...messageRendererProps} />, [
+    normalizedMessages, tools, verbose, debug, state.forkNumber, 
+    mcpClients, isDefaultModel, erroredToolUseIDs, inProgressToolUseIDs, 
+    unresolvedToolUseIDs, state.toolJSX, state.toolUseConfirm, state.isMessageSelectorVisible
+  ])
 
   // Tool UI manager props
   const toolUIManagerProps: ToolUIManagerProps = {
@@ -335,7 +348,7 @@ export function REPL({
   return (
     <PermissionProvider isBypassPermissionsModeAvailable={!safeMode} children={undefined}>
       <ModeIndicator />
-      <React.Fragment key={`static-messages-${state.forkNumber}`}>
+      <React.Fragment key="static-messages">
         {messagesJSX}
       </React.Fragment>
       <ToolUIRenderer toolUIManagerProps={toolUIManagerProps} />
@@ -363,8 +376,8 @@ export function REPL({
               setToolJSX={stateManager.setToolJSX.bind(stateManager)}
               onAutoUpdaterResult={stateManager.setAutoUpdaterResult.bind(stateManager)}
               autoUpdaterResult={state.autoUpdaterResult}
-              input={state.inputValue}
-              onInputChange={stateManager.setInputValue.bind(stateManager)}
+              input={getInputValue()}
+              onInputChange={setInputValue}
               mode={state.inputMode}
               onModeChange={stateManager.setInputMode.bind(stateManager)}
               submitCount={state.submitCount}

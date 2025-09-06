@@ -34,8 +34,12 @@ export class REPLStateManager {
 
   updateState(updater: (state: REPLState) => REPLState): void {
     const newState = updater({ ...this.state })
-    this.state = newState
-    this.notifyListeners()
+    
+    // Only update and notify if state actually changed
+    if (JSON.stringify(this.state) !== JSON.stringify(newState)) {
+      this.state = newState
+      this.notifyListeners()
+    }
   }
 
   subscribe(listener: StateListener): UnsubscribeFunction {
