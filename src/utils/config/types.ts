@@ -15,6 +15,7 @@ export type McpSSEServerConfig = {
 export type McpServerConfig = McpStdioServerConfig | McpSSEServerConfig
 
 export type ProjectConfig = {
+  projects: any
   allowedTools: string[]
   context: Record<string, string>
   contextFiles?: string[]
@@ -139,7 +140,7 @@ export type GlobalConfig = {
   modelProfiles?: ModelProfile[] // Model configuration list
   modelPointers?: ModelPointers // Model pointer system
   defaultModelName?: string // Default model
-  
+
   // Completion settings
   completionItemsLimit?: number // Maximum number of items to show in completion
 }

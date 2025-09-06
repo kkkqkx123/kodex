@@ -1,101 +1,48 @@
-import { ToolUseBlockParam } from '@anthropic-ai/sdk/resources/index.mjs'
 import { Box, Newline, Static, Text } from 'ink'
-import ProjectOnboarding, {
-  markProjectOnboardingComplete,
-} from '../ProjectOnboarding.js'
-import { CostThresholdDialog } from '../components/CostThresholdDialog'
 import * as React from 'react'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Command } from '../commands'
-import { Logo } from '../components/Logo'
-import { Message } from '../components/Message'
-import { MessageResponse } from '../components/MessageResponse'
-import { MessageSelector } from '../components/MessageSelector'
-import {
-  PermissionRequest,
-  type ToolUseConfirm,
-} from '../components/permissions/PermissionRequest.js'
-import PromptInput from '../components/PromptInput'
-import { Spinner } from '../components/Spinner'
-import { getSystemPrompt } from '../constants/prompts'
-import { getContext } from '../context'
-import { getTotalCost, useCostSummary } from '../cost-tracker'
-import { useLogStartupTime } from '../hooks/useLogStartupTime'
-import { addToHistory } from '../history'
-import { useApiKeyVerification } from '../hooks/useApiKeyVerification'
-import { useCancelRequest } from '../hooks/useCancelRequest'
-import useCanUseTool from '../hooks/useCanUseTool'
-import { useLogMessages } from '../hooks/useLogMessages'
 import { PermissionProvider } from '../context/PermissionContext'
 import { ModeIndicator } from '../components/ModeIndicator'
+import PromptInput from '../components/PromptInput'
+import { MessageSelector } from '../components/MessageSelector'
+import { Message } from '../components/Message'
+import { MessageResponse } from '../components/MessageResponse'
+import { Spinner } from '../components/Spinner'
+import { CostThresholdDialog } from '../components/CostThresholdDialog'
+import { useApiKeyVerification } from '../hooks/useApiKeyVerification'
+import { useCancelRequest } from '../hooks/useCancelRequest'
+import { useLogMessages } from '../hooks/useLogMessages'
+import { useLogStartupTime } from '../hooks/useLogStartupTime'
+import { useCostSummary } from '../cost-tracker'
+import { getTotalCost } from '../cost-tracker'
+import { logEvent } from '../services/featureFlags'
 import {
   setMessagesGetter,
   setMessagesSetter,
   setModelConfigChangeHandler,
 } from '../messages'
-import {
-  type AssistantMessage,
-  type BinaryFeedbackResult,
-  type Message as MessageType,
-  type ProgressMessage,
-  query,
-} from '../query.js'
-import type { WrappedClient } from '../services/mcpClient'
-import type { Tool } from '../Tool'
-import { AutoUpdaterResult } from '../utils/autoUpdater'
-import { getGlobalConfig, saveGlobalConfig } from '../utils/config'
-import { logEvent } from '../services/featureFlags'
-import { getNextAvailableLogForkNumber } from '../utils/log'
-import {
-  getErroredToolUseMessages,
-  getInProgressToolUseIDs,
-  getLastAssistantMessageId,
-  getToolUseID,
-  getUnresolvedToolUseIDs,
-  INTERRUPT_MESSAGE,
-  isNotEmptyMessage,
-  type NormalizedMessage,
-  normalizeMessages,
-  normalizeMessagesForAPI,
-  processUserInput,
-  reorderMessages,
-  extractTag,
-  createAssistantMessage,
-} from '../utils/messages.js'
-import { getModelManager, ModelManager } from '../utils/model'
-import { clearTerminal, updateTerminalTitle } from '../utils/terminal'
-import { BinaryFeedback } from '../components/binary-feedback/BinaryFeedback'
-import { getMaxThinkingTokens } from '../utils/thinking'
+import { clearTerminal } from '../utils/terminal'
+import { normalizeMessages, isNotEmptyMessage, normalizeMessagesForAPI, getUnresolvedToolUseIDs, getInProgressToolUseIDs, getErroredToolUseMessages } from '../utils/messages'
+import { getGlobalConfig } from '../utils/config'
 import { getOriginalCwd } from '../utils/state'
-import { handleHashCommand } from '../commands/terminalSetup'
-import { debug as debugLogger } from '../utils/debugLogger'
 
-type Props = {
-  commands: Command[]
-  safeMode?: boolean
-  debug?: boolean
-  initialForkNumber?: number | undefined
-  initialPrompt: string | undefined
-  // A unique name for the message log file, used to identify the fork
-  messageLogName: string
-  shouldShowPromptInput: boolean
-  tools: Tool[]
-  verbose: boolean | undefined
-  // Initial messages to populate the REPL with
-  initialMessages?: MessageType[]
-  // MCP clients
-  mcpClients?: WrappedClient[]
-  // Flag to indicate if current model is default
-  isDefaultModel?: boolean
-  // Callback to hide input box on exit
-  onHideInputBox?: () => void
-}
-
-export type BinaryFeedbackContext = {
-  m1: AssistantMessage
-  m2: AssistantMessage
-  resolve: (result: BinaryFeedbackResult) => void
-}
+// Import extracted services and components
+import { REPLStateManager } from './REPL/REPLStateManager'
+import { SignalHandlerService } from './REPL/SignalHandlerService'
+import { QueryCoordinatorService } from './REPL/QueryCoordinatorService'
+import { MessageRenderer } from './REPL/MessageRenderer'
+import { ToolUIRenderer } from './REPL/ToolUIManager'
+import { DialogManager } from './REPL/DialogManager'
+import {
+  type REPLCoreProps,
+  type REPLState,
+  type ToolJSXState,
+  type QueryContext,
+  type MessageRendererProps,
+  type ToolUIManagerProps,
+  type DialogManagerProps
+} from './REPL.types'
 
 export function REPL({
   commands,
@@ -111,498 +58,216 @@ export function REPL({
   mcpClients = [],
   isDefaultModel = true,
   onHideInputBox,
-}: Props): React.ReactNode {
+}: REPLCoreProps): React.ReactNode {
   // TODO: probably shouldn't re-read config from file synchronously on every keystroke
   const verbose = verboseFromCLI ?? getGlobalConfig().verbose
 
-  // Used to force the logo to re-render and conversation log to use a new file
-  const [forkNumber, setForkNumber] = useState(
-    getNextAvailableLogForkNumber(messageLogName, initialForkNumber, 0),
+  // Initialize state manager
+  const stateManager = useMemo(() =>
+    new REPLStateManager(initialMessages, initialPrompt, messageLogName, initialForkNumber),
+    [initialMessages, initialPrompt, messageLogName, initialForkNumber]
   )
 
-  const [
-    forkConvoWithMessagesOnTheNextRender,
-    setForkConvoWithMessagesOnTheNextRender,
-  ] = useState<MessageType[] | null>(null)
+  const [state, setState] = useState<REPLState>(stateManager.getState())
 
-  // 🔧 Simplified AbortController management - inspired by reference system
-  const [abortController, setAbortController] = useState<AbortController | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [autoUpdaterResult, setAutoUpdaterResult] =
-    useState<AutoUpdaterResult | null>(null)
-  const [toolJSX, setToolJSX] = useState<{
-    jsx: React.ReactNode | null
-    shouldHidePromptInput: boolean
-  } | null>(null)
-  const [toolUseConfirm, setToolUseConfirm] = useState<ToolUseConfirm | null>(
-    null,
-  )
-  const [messages, setMessages] = useState<MessageType[]>(initialMessages ?? [])
-  const [inputValue, setInputValue] = useState('')
-  const [inputMode, setInputMode] = useState<'bash' | 'prompt' | 'koding'>(
-    'prompt',
-  )
-  const [submitCount, setSubmitCount] = useState(0)
-  const [isMessageSelectorVisible, setIsMessageSelectorVisible] =
-    useState(false)
-  const [showCostDialog, setShowCostDialog] = useState(false)
-  const [haveShownCostDialog, setHaveShownCostDialog] = useState(
-    getGlobalConfig().hasAcknowledgedCostThreshold,
-  )
+  // Subscribe to state changes
+  useEffect(() => {
+    const unsubscribe = stateManager.subscribe((newState: REPLState) => {
+      setState(newState)
+    })
+    return unsubscribe
+  }, [stateManager])
 
-  const [binaryFeedbackContext, setBinaryFeedbackContext] =
-    useState<BinaryFeedbackContext | null>(null)
+  // Initialize query coordinator
+  const queryCoordinator = useMemo(() => QueryCoordinatorService.getInstance(), [])
 
-  // State to control input box visibility on exit
-  const [shouldHideInputBox, setShouldHideInputBox] = useState(false)
+  // Refs
+  const readFileTimestamps = useRef<{ [filename: string]: number }>({})
 
-  const getBinaryFeedbackResponse = useCallback(
-    (
-      m1: AssistantMessage,
-      m2: AssistantMessage,
-    ): Promise<BinaryFeedbackResult> => {
-      return new Promise<BinaryFeedbackResult>(resolvePromise => {
-        setBinaryFeedbackContext({
-          m1,
-          m2,
-          resolve: resolvePromise,
-        })
-      })
-    },
-    [],
-  )
-
-  const readFileTimestamps = useRef<{
-    [filename: string]: number
-  }>({})
-
+  // Hooks
   const { status: apiKeyStatus, reverify } = useApiKeyVerification()
-  // 🔧 FIXED: Simple cancellation logic matching original claude-code
-  function onCancel() {
-    if (!isLoading) {
+
+  const onCancel = useCallback(() => {
+    if (!state.isLoading) {
       return
     }
-    setIsLoading(false)
-    if (toolUseConfirm) {
+    stateManager.setLoading(false)
+    if (state.toolUseConfirm) {
       // Tool use confirm handles the abort signal itself
-      toolUseConfirm.onAbort()
+      state.toolUseConfirm.onAbort()
     } else {
       // Wrap abort in try-catch to prevent error display on user interrupt
       try {
-        abortController?.abort()
+        state.abortController?.abort()
       } catch (e) {
         // Silently handle abort errors - this is expected behavior
       }
     }
-  }
+  }, [state.isLoading, state.toolUseConfirm, state.abortController, stateManager])
 
   useCancelRequest(
-    setToolJSX,
-    setToolUseConfirm,
-    setBinaryFeedbackContext,
+    stateManager.setToolJSX.bind(stateManager),
+    stateManager.setToolUseConfirm.bind(stateManager),
+    stateManager.setBinaryFeedbackContext.bind(stateManager),
     onCancel,
-    isLoading,
-    isMessageSelectorVisible,
-    abortController?.signal,
+    state.isLoading,
+    state.isMessageSelectorVisible,
+    state.abortController?.signal,
   )
 
+  // Handle fork conversation
   useEffect(() => {
-    if (forkConvoWithMessagesOnTheNextRender) {
-      setForkNumber(_ => _ + 1)
-      setForkConvoWithMessagesOnTheNextRender(null)
-      setMessages(forkConvoWithMessagesOnTheNextRender)
+    if (state.forkConvoWithMessagesOnTheNextRender) {
+      stateManager.incrementForkNumber()
+      stateManager.setForkConvoWithMessagesOnTheNextRender(null)
+      stateManager.setMessages(state.forkConvoWithMessagesOnTheNextRender)
     }
-  }, [forkConvoWithMessagesOnTheNextRender])
+  }, [state.forkConvoWithMessagesOnTheNextRender, stateManager])
 
+  // Handle cost threshold
   useEffect(() => {
     const totalCost = getTotalCost()
-    if (totalCost >= 5 /* $5 */ && !showCostDialog && !haveShownCostDialog) {
+    if (totalCost >= 5 /* $5 */ && !state.showCostDialog && !state.haveShownCostDialog) {
       logEvent('tengu_cost_threshold_reached', {})
-      setShowCostDialog(true)
+      stateManager.setShowCostDialog(true)
     }
-  }, [messages, showCostDialog, haveShownCostDialog])
+  }, [state.messages, state.showCostDialog, state.haveShownCostDialog, stateManager])
 
-  const canUseTool = useCanUseTool(setToolUseConfirm)
-
-  async function onInit() {
+  // Handle initial prompt
+  const handleInit = useCallback(async () => {
     reverify()
 
     if (!initialPrompt) {
       return
     }
 
-    setIsLoading(true)
-
-    const newAbortController = new AbortController()
-    setAbortController(newAbortController)
-
-    // 🔧 Force fresh config read to ensure model switching works
-    const model = new ModelManager(getGlobalConfig()).getModelName('main')
-    const newMessages = await processUserInput(
+    await queryCoordinator.handleInitialPrompt(
       initialPrompt,
-      'prompt',
-      setToolJSX,
-      {
-        abortController: newAbortController,
-        options: {
-          commands,
-          forkNumber,
-          messageLogName,
-          tools,
-          verbose,
-          maxThinkingTokens: 0,
-        },
-        messageId: getLastAssistantMessageId(messages),
-        setForkConvoWithMessagesOnTheNextRender,
-        readFileTimestamps: readFileTimestamps.current,
-      },
-      null,
+      commands,
+      state.forkNumber,
+      messageLogName,
+      tools,
+      verbose,
+      state.messages,
+      stateManager.setMessages.bind(stateManager),
+      stateManager.setLoading.bind(stateManager),
+      stateManager.setAbortController.bind(stateManager),
+      stateManager.setToolJSX.bind(stateManager),
+      stateManager.setForkConvoWithMessagesOnTheNextRender.bind(stateManager),
+      readFileTimestamps.current,
+      stateManager.getBinaryFeedbackResponse.bind(stateManager),
     )
 
-    if (newMessages.length) {
-      for (const message of newMessages) {
-        if (message.type === 'user') {
-          addToHistory(initialPrompt)
-          // TODO: setHistoryIndex
-        }
-      }
-      setMessages(_ => [..._, ...newMessages])
-
-      // The last message is an assistant message if the user input was a bash command,
-      // or if the user input was an invalid slash command.
-      const lastMessage = newMessages[newMessages.length - 1]!
-      if (lastMessage.type === 'assistant') {
-        setAbortController(null)
-        setIsLoading(false)
-        return
-      }
-
-      const [systemPrompt, context, model, maxThinkingTokens] =
-        await Promise.all([
-          getSystemPrompt(),
-          getContext(),
-          new ModelManager(getGlobalConfig()).getModelName('main'),
-          getMaxThinkingTokens([...messages, ...newMessages]),
-        ])
-
-      for await (const message of query(
-        [...messages, ...newMessages],
-        systemPrompt,
-        context,
-        canUseTool,
-        {
-          options: {
-            commands,
-            forkNumber,
-            messageLogName,
-            tools,
-            verbose,
-            safeMode,
-            maxThinkingTokens,
-          },
-          messageId: getLastAssistantMessageId([...messages, ...newMessages]),
-          readFileTimestamps: readFileTimestamps.current,
-          abortController: newAbortController,
-          setToolJSX,
-        },
-        getBinaryFeedbackResponse,
-      )) {
-        setMessages(oldMessages => [...oldMessages, message])
-      }
-    } else {
-      addToHistory(initialPrompt)
-      // TODO: setHistoryIndex
-    }
-
-    setHaveShownCostDialog(
+    stateManager.setHaveShownCostDialog(
       getGlobalConfig().hasAcknowledgedCostThreshold || false,
     )
+  }, [
+    initialPrompt,
+    reverify,
+    queryCoordinator,
+    commands,
+    state.forkNumber,
+    messageLogName,
+    tools,
+    verbose,
+    state.messages,
+    stateManager,
+  ])
 
-    // 🔧 Fix: Clean up state after onInit completion
-    setIsLoading(false)
-    setAbortController(null)
-  }
-
-  async function onQuery(newMessages: MessageType[], passedAbortController?: AbortController) {
-    // Use passed AbortController or create new one
-    const controllerToUse = passedAbortController || new AbortController()
-    if (!passedAbortController) {
-      setAbortController(controllerToUse)
+  // Handle query
+  const handleQuery = useCallback(async (newMessages: any[], passedAbortController?: AbortController) => {
+    const context: QueryContext = {
+      commands,
+      forkNumber: state.forkNumber,
+      messageLogName,
+      tools,
+      verbose,
+      safeMode,
+      maxThinkingTokens: 0, // This would be calculated
     }
 
-    // Check if this is a Koding request based on last message's options
-    const isKodingRequest =
-      newMessages.length > 0 &&
-      newMessages[0].type === 'user' &&
-      'options' in newMessages[0] &&
-      newMessages[0].options?.isKodingRequest === true
-
-    setMessages(oldMessages => [...oldMessages, ...newMessages])
-
-    // Mark onboarding as complete when any user message is sent to Claude
-    markProjectOnboardingComplete()
-
-    // The last message is an assistant message if the user input was a bash command,
-    // or if the user input was an invalid slash command.
-    const lastMessage = newMessages[newMessages.length - 1]!
-
-    // Update terminal title based on user message
-    if (
-      lastMessage.type === 'user' &&
-      typeof lastMessage.message.content === 'string'
-    ) {
-      // updateTerminalTitle(lastMessage.message.content)
-    }
-    if (lastMessage.type === 'assistant') {
-      setAbortController(null)
-      setIsLoading(false)
-      return
-    }
-
-    const [systemPrompt, context, model, maxThinkingTokens] =
-      await Promise.all([
-        getSystemPrompt(),
-        getContext(),
-        new ModelManager(getGlobalConfig()).getModelName('main'),
-        getMaxThinkingTokens([...messages, lastMessage]),
-      ])
-
-    let lastAssistantMessage: MessageType | null = null
-
-    // query the API
-    for await (const message of query(
-      [...messages, lastMessage],
-      systemPrompt,
+    await queryCoordinator.executeQuery(
+      newMessages,
       context,
-      canUseTool,
-      {
-        options: {
-          commands,
-          forkNumber,
-          messageLogName,
-          tools,
-          verbose,
-          safeMode,
-          maxThinkingTokens,
-          // If this came from Koding mode, pass that along
-          isKodingRequest: isKodingRequest || undefined,
-        },
-        messageId: getLastAssistantMessageId([...messages, lastMessage]),
-        readFileTimestamps: readFileTimestamps.current,
-        abortController: controllerToUse,
-        setToolJSX,
-      },
-      getBinaryFeedbackResponse,
-    )) {
-      setMessages(oldMessages => [...oldMessages, message])
+      state.messages,
+      stateManager.setMessages.bind(stateManager),
+      stateManager.setLoading.bind(stateManager),
+      stateManager.setAbortController.bind(stateManager),
+      stateManager.setToolJSX.bind(stateManager),
+      stateManager.getBinaryFeedbackResponse.bind(stateManager),
+      passedAbortController,
+    )
+  }, [
+    commands,
+    state.forkNumber,
+    messageLogName,
+    tools,
+    verbose,
+    safeMode,
+    state.messages,
+    queryCoordinator,
+    stateManager,
+  ])
 
-      // Keep track of the last assistant message for Koding mode
-      if (message.type === 'assistant') {
-        lastAssistantMessage = message
-      }
-    }
-
-    // If this was a Koding request and we got an assistant message back,
-    // save it to AGENTS.md (and CLAUDE.md if exists)
-    if (
-      isKodingRequest &&
-      lastAssistantMessage &&
-      lastAssistantMessage.type === 'assistant'
-    ) {
-      try {
-        const content =
-          typeof lastAssistantMessage.message.content === 'string'
-            ? lastAssistantMessage.message.content
-            : lastAssistantMessage.message.content
-              .filter(block => block.type === 'text')
-              .map(block => (block.type === 'text' ? block.text : ''))
-              .join('\n')
-
-        // Add the content to AGENTS.md (and CLAUDE.md if exists)
-        if (content && content.trim().length > 0) {
-          handleHashCommand(content)
-        }
-      } catch (error) {
-        console.error('Error saving response to project docs:', error)
-      }
-    }
-
-    setIsLoading(false)
-  }
-
-  // Register cost summary tracker
+  // Register services
   useCostSummary()
+  useLogMessages(state.messages, messageLogName, state.forkNumber)
+  useLogStartupTime()
 
   // Register messages getter and setter
   useEffect(() => {
-    const getMessages = () => messages
+    const getMessages = () => state.messages
     setMessagesGetter(getMessages)
-    setMessagesSetter(setMessages)
-  }, [messages])
+    setMessagesSetter(stateManager.setMessages.bind(stateManager))
+  }, [state.messages, stateManager])
 
-  // Register model config change handler for UI refresh
+  // Register model config change handler
   useEffect(() => {
     setModelConfigChangeHandler(() => {
-      setForkNumber(prev => prev + 1)
+      stateManager.incrementForkNumber()
     })
-  }, [])
-
-  // Record transcripts locally, for debugging and conversation recovery
-  useLogMessages(messages, messageLogName, forkNumber)
-
-  // Log startup time
-  useLogStartupTime()
+  }, [stateManager])
 
   // Initial load
   useEffect(() => {
-    onInit()
-    // TODO: fix this
+    handleInit()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Handle exit cleanup
+  // Setup signal handling
   useEffect(() => {
-    const handleExit = () => {
-      // Clear input before exit
-      setInputValue('')
-      // Hide the input box container
-      setShouldHideInputBox(true)
-      // Call the external callback if provided
-      if (onHideInputBox) {
-        onHideInputBox()
-      }
-      // Clear the terminal line
-      if (process.stdout.isTTY) {
-        process.stdout.write('\r\x1b[K')
-      }
-      // Force a sync flush to ensure the terminal is cleared
-      if (process.stdout.write) {
-        process.stdout.write('\r\x1b[K')
-      }
-    }
-
-    // Override process.exit to ensure cleanup
-    const originalExit = process.exit
-    process.exit = function(code?: number): never {
-      handleExit()
-      originalExit.call(process, code)
-      // This line will never be reached, but TypeScript needs to know the function never returns
-      throw new Error('process.exit should never return')
-    }
-
-    // Handle SIGINT (Ctrl+C) with double tap logic
-    let lastSigintTime = 0
-    const sigintDelay = 500 // 500ms delay for double tap
-    
-    const handleSigint = async () => {
-      const now = Date.now()
-      
-      // Check if we're in a non-main interface (message selector, tool confirm, etc.)
-      const isNonMainInterface = isMessageSelectorVisible || toolUseConfirm || binaryFeedbackContext || toolJSX
-      
-      if (isNonMainInterface) {
-        // Non-main interface logic
-        if (now - lastSigintTime < sigintDelay) {
-          // Double tap - exit non-main interface (equivalent to ESC)
-          console.log('\nExiting current interface...')
-          if (isMessageSelectorVisible) {
-            setIsMessageSelectorVisible(false)
-          }
-          if (toolUseConfirm) {
-            setToolUseConfirm(null)
-          }
-          if (binaryFeedbackContext) {
-            setBinaryFeedbackContext(null)
-          }
-          if (toolJSX) {
-            setToolJSX(null)
-          }
-          lastSigintTime = 0 // Reset timer
-        } else {
-          // Single tap - show prompt only
-          console.log('\nPress Ctrl+C again to exit')
-          lastSigintTime = now
-        }
-      } else {
-        // Main interface logic
-        if (now - lastSigintTime < sigintDelay) {
-          // Double tap - exit program and terminate all child processes
-          console.log('\nExiting program...')
-          
-          // Import cleanup functions
-          const { stopAgentWatcher } = await import('../utils/agentLoader')
-          const { closeAllClients } = await import('../services/mcpClient')
-          const { PersistentShell } = await import('../utils/PersistentShell')
-          
-          // Clean up resources before exit
-          try {
-            // Clean up file watchers
-            await stopAgentWatcher().catch(err => {
-              console.warn('Failed to stop agent watchers:', err)
-            })
-            
-            // Clean up MCP client connections
-            await closeAllClients().catch(err => {
-              console.warn('Failed to close MCP clients:', err)
-            })
-            
-            // Close persistent shell
-            try {
-              PersistentShell.getInstance().close()
-            } catch (err) {
-              console.warn('Failed to close persistent shell:', err)
-            }
-            
-            // Clean up GC interval if exists
-            if (global.gcInterval) {
-              clearInterval(global.gcInterval)
-              global.gcInterval = null
-            }
-            
-            // Force garbage collection
-            if (global.gc) {
-              try {
-                global.gc()
-              } catch (e) {
-                // Ignore GC errors
-              }
-            }
-          } catch (error) {
-            console.error('Error during cleanup:', error)
-          }
-          
-          // Small delay to ensure UI updates and cleanup
-          setTimeout(() => {
-            // Force process exit with code 0
-            try {
-              process.exit(0)
-            } catch (e) {
-              // If process.exit fails, try more forceful termination
-              process.kill(process.pid, 'SIGTERM')
-            }
-          }, 10)
-        } else {
-          // Single tap - show prompt only
-          console.log('\nPress Ctrl+C again to exit')
-          lastSigintTime = now
+    const cleanup = SignalHandlerService.setupSignalHandling(
+      stateManager.setToolJSX.bind(stateManager),
+      stateManager.setToolUseConfirm.bind(stateManager),
+      stateManager.setBinaryFeedbackContext.bind(stateManager),
+      state.isMessageSelectorVisible,
+      stateManager.setMessageSelectorVisible.bind(stateManager),
+      state.toolUseConfirm,
+      state.binaryFeedbackContext,
+      state.toolJSX,
+      stateManager.setToolJSX.bind(stateManager),
+      () => {
+        stateManager.setShouldHideInputBox(true)
+        if (onHideInputBox) {
+          onHideInputBox()
         }
       }
-    }
+    )
 
-    process.on('SIGINT', handleSigint)
+    return cleanup
+  }, [
+    state.isMessageSelectorVisible,
+    state.toolUseConfirm,
+    state.binaryFeedbackContext,
+    state.toolJSX,
+    stateManager,
+    onHideInputBox,
+  ])
 
-    return () => {
-      process.exit = originalExit
-      process.off('SIGINT', handleSigint)
-      if (process.platform === 'win32' && process.env.PSModulePath) {
-        process.off('SIGBREAK', handleSigint)
-      }
-    }
-  }, [])
-
+  // Memoized values
   const normalizedMessages = useMemo(
-    () => normalizeMessages(messages).filter(isNotEmptyMessage),
-    [messages],
+    () => normalizeMessages(state.messages).filter(isNotEmptyMessage),
+    [state.messages],
   )
 
   const unresolvedToolUseIDs = useMemo(
@@ -616,279 +281,124 @@ export function REPL({
   )
 
   const erroredToolUseIDs = useMemo(
-    () =>
-      new Set(
-        getErroredToolUseMessages(normalizedMessages).map(
-          _ => (_.message.content[0]! as ToolUseBlockParam).id,
-        ),
+    () => new Set(
+      getErroredToolUseMessages(normalizedMessages).map(
+        _ => (_.message.content[0] as any).id,
       ),
+    ),
     [normalizedMessages],
   )
 
-  const messagesJSX = useMemo(() => {
-    return [
-      {
-        type: 'static',
-        jsx: (
-          <Box flexDirection="column" key={`logo${forkNumber}`}>
-            <Logo mcpClients={mcpClients} isDefaultModel={isDefaultModel} />
-            <ProjectOnboarding workspaceDir={getOriginalCwd()} />
-          </Box>
-        ),
-      },
-      ...reorderMessages(normalizedMessages).map(_ => {
-        const toolUseID = getToolUseID(_)
-        const message =
-          _.type === 'progress' ? (
-            _.content.message.content[0]?.type === 'text' &&
-              // Hack: TaskTool interrupts use Progress messages, so don't
-              // need an extra ⎿ because <Message /> already adds one.
-              // TODO: Find a cleaner way to do this.
-              // Check if we're in PowerShell and adjust rendering
-              _.content.message.content[0].text === INTERRUPT_MESSAGE ? (
-              <Message
-                message={_.content}
-                messages={_.normalizedMessages}
-                addMargin={false}
-                tools={_.tools}
-                verbose={verbose ?? false}
-                debug={debug}
-                erroredToolUseIDs={new Set()}
-                inProgressToolUseIDs={new Set()}
-                unresolvedToolUseIDs={new Set()}
-                shouldAnimate={false}
-                shouldShowDot={false}
-              />
-            ) : (
-              <MessageResponse children={undefined}>
-                <Message
-                  message={_.content}
-                  messages={_.normalizedMessages}
-                  addMargin={false}
-                  tools={_.tools}
-                  verbose={verbose ?? false}
-                  debug={debug}
-                  erroredToolUseIDs={new Set()}
-                  inProgressToolUseIDs={new Set()}
-                  unresolvedToolUseIDs={
-                    new Set([
-                      (_.content.message.content[0]! as ToolUseBlockParam).id,
-                    ])
-                  }
-                  shouldAnimate={false}
-                  shouldShowDot={false}
-                />
-              </MessageResponse>
-            )
-          ) : (
-            <Message
-              message={_}
-              messages={normalizedMessages}
-              addMargin={true}
-              tools={tools}
-              verbose={verbose}
-              debug={debug}
-              erroredToolUseIDs={erroredToolUseIDs}
-              inProgressToolUseIDs={inProgressToolUseIDs}
-              shouldAnimate={
-                !toolJSX &&
-                !toolUseConfirm &&
-                !isMessageSelectorVisible &&
-                (!toolUseID || inProgressToolUseIDs.has(toolUseID))
-              }
-              shouldShowDot={true}
-              unresolvedToolUseIDs={unresolvedToolUseIDs}
-            />
-          )
-
-        const type = shouldRenderStatically(
-          _,
-          normalizedMessages,
-          unresolvedToolUseIDs,
-        )
-          ? 'static'
-          : 'transient'
-
-        // PowerShell-specific rendering adjustments
-        if (process.platform === 'win32' && process.env.PSModulePath) {
-          // Simplify rendering in PowerShell to prevent memory leaks
-          return {
-            type: 'static',
-            jsx: (
-              <Box key={_.uuid} width="100%">
-                {message}
-              </Box>
-            ),
-          }
-        }
-
-        if (debug) {
-          return {
-            type,
-            jsx: (
-              <Box
-                borderStyle="single"
-                borderColor={type === 'static' ? 'green' : 'red'}
-                key={_.uuid}
-                width="100%"
-              >
-                {message}
-              </Box>
-            ),
-          }
-        }
-
-        return {
-          type,
-          jsx: (
-            <Box key={_.uuid} width="100%">
-              {message}
-            </Box>
-          ),
-        }
-      }),
-    ]
-  }, [
-    forkNumber,
-    normalizedMessages,
+  // Message renderer props
+  const messageRendererProps: MessageRendererProps = {
+    messages: normalizedMessages,
     tools,
     verbose,
     debug,
-    erroredToolUseIDs,
-    inProgressToolUseIDs,
-    toolJSX,
-    toolUseConfirm,
-    isMessageSelectorVisible,
-    unresolvedToolUseIDs,
+    forkNumber: state.forkNumber,
     mcpClients,
     isDefaultModel,
-  ])
+    erroredToolUseIDs,
+    inProgressToolUseIDs,
+    unresolvedToolUseIDs,
+    toolJSX: state.toolJSX,
+    toolUseConfirm: state.toolUseConfirm,
+    isMessageSelectorVisible: state.isMessageSelectorVisible,
+  }
 
-  // only show the dialog once not loading
-  const showingCostDialog = !isLoading && showCostDialog
+  const messagesJSX = MessageRenderer(messageRendererProps)
+
+  // Tool UI manager props
+  const toolUIManagerProps: ToolUIManagerProps = {
+    toolJSX: state.toolJSX,
+    toolUseConfirm: state.toolUseConfirm,
+    binaryFeedbackContext: state.binaryFeedbackContext,
+    isMessageSelectorVisible: state.isMessageSelectorVisible,
+    showingCostDialog: !state.isLoading && state.showCostDialog,
+    verbose,
+    normalizedMessages,
+    tools,
+    debug,
+    erroredToolUseIDs,
+    inProgressToolUseIDs,
+    unresolvedToolUseIDs,
+  }
+
+  // Dialog manager props
+  const dialogManagerProps: DialogManagerProps = {
+    showCostDialog: state.showCostDialog,
+    haveShownCostDialog: state.haveShownCostDialog,
+    isLoading: state.isLoading,
+    verbose,
+  }
 
   return (
     <PermissionProvider isBypassPermissionsModeAvailable={!safeMode} children={undefined}>
       <ModeIndicator />
-      <React.Fragment key={`static-messages-${forkNumber}`}>
-        <Static
-          items={messagesJSX.filter(_ => _.type === 'static')} children={function (item: unknown, index: number) {
-            throw new Error('Function not implemented.')
-          }}        >
-          {_ => _.jsx}
+      <React.Fragment key={`static-messages-${state.forkNumber}`}>
+        <Static items={messagesJSX.filter(_ => _.type === 'static')} children={function (item: unknown, index: number) {
+          throw new Error('Function not implemented.')
+        }}>
+          {item => item.jsx}
         </Static>
       </React.Fragment>
-      {messagesJSX.filter(_ => _.type === 'transient').map(_ => _.jsx)}
-      <Box
-        borderColor="red"
-        borderStyle={debug ? 'single' : undefined}
-        flexDirection="column"
-        width="100%"
-      >
-        {!toolJSX && !toolUseConfirm && !binaryFeedbackContext && isLoading && (
-          <Spinner />
-        )}
-        {toolJSX ? toolJSX.jsx : null}
-        {!toolJSX && binaryFeedbackContext && !isMessageSelectorVisible && (
-          <BinaryFeedback
-            m1={binaryFeedbackContext.m1}
-            m2={binaryFeedbackContext.m2}
-            resolve={result => {
-              binaryFeedbackContext.resolve(result)
-              setTimeout(() => setBinaryFeedbackContext(null), 0)
-            }}
-            verbose={verbose}
-            normalizedMessages={normalizedMessages}
-            tools={tools}
-            debug={debug}
-            erroredToolUseIDs={erroredToolUseIDs}
-            inProgressToolUseIDs={inProgressToolUseIDs}
-            unresolvedToolUseIDs={unresolvedToolUseIDs}
-          />
-        )}
-        {!toolJSX &&
-          toolUseConfirm &&
-          !isMessageSelectorVisible &&
-          !binaryFeedbackContext && (
-            <PermissionRequest
-              toolUseConfirm={toolUseConfirm}
-              onDone={() => setToolUseConfirm(null)}
-              verbose={verbose}
-            />
-          )}
-        {!toolJSX &&
-          !toolUseConfirm &&
-          !isMessageSelectorVisible &&
-          !binaryFeedbackContext &&
-          showingCostDialog && (
-            <CostThresholdDialog
-              onDone={() => {
-                setShowCostDialog(false)
-                setHaveShownCostDialog(true)
-                const projectConfig = getGlobalConfig()
-                saveGlobalConfig({
-                  ...projectConfig,
-                  hasAcknowledgedCostThreshold: true,
-                })
-                logEvent('tengu_cost_threshold_acknowledged', {})
-              }}
-            />
-          )}
+      {messagesJSX.filter(_ => _.type === 'transient').map(item => item.jsx)}
+      <ToolUIRenderer toolUIManagerProps={toolUIManagerProps} />
+      <DialogManager {...dialogManagerProps} />
 
-        {!toolUseConfirm &&
-          !toolJSX?.shouldHidePromptInput &&
-          shouldShowPromptInput &&
-          !isMessageSelectorVisible &&
-          !binaryFeedbackContext &&
-          !showingCostDialog &&
-          !shouldHideInputBox && (
-            <>
-              <PromptInput
-                commands={commands}
-                forkNumber={forkNumber}
-                messageLogName={messageLogName}
-                tools={tools}
-                isDisabled={apiKeyStatus === 'invalid'}
-                isLoading={isLoading}
-                onQuery={onQuery}
-                debug={debug}
-                verbose={verbose}
-                messages={messages}
-                setToolJSX={setToolJSX}
-                onAutoUpdaterResult={setAutoUpdaterResult}
-                autoUpdaterResult={autoUpdaterResult}
-                input={inputValue}
-                onInputChange={setInputValue}
-                mode={inputMode}
-                onModeChange={setInputMode}
-                submitCount={submitCount}
-                onSubmitCountChange={setSubmitCount}
-                setIsLoading={setIsLoading}
-                setAbortController={setAbortController}
-                onShowMessageSelector={() =>
-                  setIsMessageSelectorVisible(prev => !prev)
-                }
-                setForkConvoWithMessagesOnTheNextRender={
-                  setForkConvoWithMessagesOnTheNextRender
-                }
-                readFileTimestamps={readFileTimestamps.current}
-                abortController={abortController}
-                onModelChange={() => setForkNumber(prev => prev + 1)}
-                onExit={() => setShouldHideInputBox(true)}
-              />
-            </>
-          )}
-      </Box>
-      {isMessageSelectorVisible && (
+      {!state.toolUseConfirm &&
+        !state.toolJSX?.shouldHidePromptInput &&
+        shouldShowPromptInput &&
+        !state.isMessageSelectorVisible &&
+        !state.binaryFeedbackContext &&
+        !(!state.isLoading && state.showCostDialog) &&
+        !state.shouldHideInputBox && (
+          <>
+            <PromptInput
+              commands={commands}
+              forkNumber={state.forkNumber}
+              messageLogName={messageLogName}
+              tools={tools}
+              isDisabled={apiKeyStatus === 'invalid'}
+              isLoading={state.isLoading}
+              onQuery={handleQuery}
+              debug={debug}
+              verbose={verbose}
+              messages={state.messages}
+              setToolJSX={stateManager.setToolJSX.bind(stateManager)}
+              onAutoUpdaterResult={stateManager.setAutoUpdaterResult.bind(stateManager)}
+              autoUpdaterResult={state.autoUpdaterResult}
+              input={state.inputValue}
+              onInputChange={stateManager.setInputValue.bind(stateManager)}
+              mode={state.inputMode}
+              onModeChange={stateManager.setInputMode.bind(stateManager)}
+              submitCount={state.submitCount}
+              onSubmitCountChange={stateManager.setSubmitCount.bind(stateManager)}
+              setIsLoading={stateManager.setLoading.bind(stateManager)}
+              setAbortController={stateManager.setAbortController.bind(stateManager)}
+              onShowMessageSelector={() =>
+                stateManager.setMessageSelectorVisible(prev => !prev)
+              }
+              setForkConvoWithMessagesOnTheNextRender={
+                stateManager.setForkConvoWithMessagesOnTheNextRender.bind(stateManager)
+              }
+              readFileTimestamps={readFileTimestamps.current}
+              abortController={state.abortController}
+              onModelChange={() => stateManager.incrementForkNumber()}
+              onExit={() => stateManager.setShouldHideInputBox(true)}
+            />
+          </>
+        )}
+      {state.isMessageSelectorVisible && (
         <MessageSelector
           erroredToolUseIDs={erroredToolUseIDs}
           unresolvedToolUseIDs={unresolvedToolUseIDs}
-          messages={normalizeMessagesForAPI(messages)}
+          messages={normalizeMessagesForAPI(state.messages)}
           onSelect={async message => {
-            setIsMessageSelectorVisible(false)
+            stateManager.setMessageSelectorVisible(false)
 
             // If the user selected the current prompt, do nothing
-            if (!messages.includes(message)) {
+            if (!state.messages.includes(message)) {
               return
             }
 
@@ -902,18 +412,18 @@ export function REPL({
             setImmediate(async () => {
               // Clear messages, and re-render
               await clearTerminal()
-              setMessages([])
-              setForkConvoWithMessagesOnTheNextRender(
-                messages.slice(0, messages.indexOf(message)),
+              stateManager.setMessages([])
+              stateManager.setForkConvoWithMessagesOnTheNextRender(
+                state.messages.slice(0, state.messages.indexOf(message)),
               )
 
               // Populate/reset the prompt input
               if (typeof message.message.content === 'string') {
-                setInputValue(message.message.content)
+                stateManager.setInputValue(message.message.content)
               }
             })
           }}
-          onEscape={() => setIsMessageSelectorVisible(false)}
+          onEscape={() => stateManager.setMessageSelectorVisible(false)}
           tools={tools}
         />
       )}
@@ -921,41 +431,4 @@ export function REPL({
       <Newline />
     </PermissionProvider>
   )
-}
-
-function shouldRenderStatically(
-  message: NormalizedMessage,
-  messages: NormalizedMessage[],
-  unresolvedToolUseIDs: Set<string>,
-): boolean {
-  switch (message.type) {
-    case 'user':
-    case 'assistant': {
-      const toolUseID = getToolUseID(message)
-      if (!toolUseID) {
-        return true
-      }
-      if (unresolvedToolUseIDs.has(toolUseID)) {
-        return false
-      }
-
-      const correspondingProgressMessage = messages.find(
-        _ => _.type === 'progress' && _.toolUseID === toolUseID,
-      ) as ProgressMessage | null
-      if (!correspondingProgressMessage) {
-        return true
-      }
-
-      return !intersects(
-        unresolvedToolUseIDs,
-        correspondingProgressMessage.siblingToolUseIDs,
-      )
-    }
-    case 'progress':
-      return !intersects(unresolvedToolUseIDs, message.siblingToolUseIDs)
-  }
-}
-
-function intersects<A>(a: Set<A>, b: Set<A>): boolean {
-  return a.size > 0 && b.size > 0 && [...a].some(_ => b.has(_))
 }
