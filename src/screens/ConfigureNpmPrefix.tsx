@@ -8,7 +8,7 @@ import { useTerminalSize } from '../hooks/useTerminalSize'
 import { PRODUCT_NAME } from '../constants/product'
 import { setupNewPrefix, installGlobalPackage } from '../utils/autoUpdater'
 import { logError } from '../utils/log'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import { MACRO } from '../constants/macros'
 type Props = {
   customPrefix: string

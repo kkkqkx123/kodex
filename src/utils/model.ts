@@ -1,5 +1,5 @@
 import { memoize } from 'lodash-es'
-import { getDynamicConfig, getExperimentValue } from '../services/statsig'
+import { getDynamicConfig, getExperimentValue } from '../services/featureFlags'
 import { logError } from './log'
 import {
   getGlobalConfig,

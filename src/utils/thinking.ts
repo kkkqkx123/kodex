@@ -1,6 +1,6 @@
 import { last } from 'lodash-es'
 import type { Message } from '../query'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import { getLastAssistantMessageId } from './messages'
 import { ThinkTool } from '../tools/ThinkTool/ThinkTool'
 import { USE_BEDROCK, USE_VERTEX, getModelManager } from './model'

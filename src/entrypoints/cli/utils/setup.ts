@@ -3,7 +3,7 @@ import { grantReadPermissionForOriginalDir } from '../../../utils/permissions/fi
 import { cleanupOldMessageFilesInBackground } from '../../../utils/cleanup'
 import { getContext } from '../../../context'
 import { getGlobalConfig, saveGlobalConfig, getCurrentProjectConfig } from '../../../utils/config'
-import { logEvent } from '../../../services/statsig'
+import { logEvent } from '../../../services/featureFlags'
 import { render } from 'ink'
 import { Doctor } from '../../../screens/Doctor'
 import React from 'react'

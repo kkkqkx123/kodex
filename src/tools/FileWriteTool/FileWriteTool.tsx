@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { FileEditToolUpdatedMessage } from '../../components/FileEditToolUpdatedMessage'
 import { HighlightedCode } from '../../components/HighlightedCode'
 import { StructuredDiff } from '../../components/StructuredDiff'
-import { logEvent } from '../../services/statsig'
+import { logEvent } from '../../services/featureFlags'
 import type { Tool } from '../../Tool'
 import { intersperse } from '../../utils/array'
 import {

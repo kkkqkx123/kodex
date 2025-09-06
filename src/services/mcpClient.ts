@@ -36,7 +36,7 @@ import type { Tool } from '../Tool'
 import { MCPTool } from '../tools/MCPTool/MCPTool'
 import { logMCPError } from '../utils/log'
 import { Command } from '../commands'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import { PRODUCT_COMMAND } from '../constants/product.js'
 
 type McpName = string

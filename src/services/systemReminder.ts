@@ -1,5 +1,5 @@
 import { getTodos, TodoItem } from '../utils/todoStorage'
-import { logEvent } from './statsig'
+import { logEvent } from './featureFlags'
 
 export interface ReminderMessage {
   role: 'system'

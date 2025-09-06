@@ -44,7 +44,7 @@ import type { WrappedClient } from '../services/mcpClient'
 import type { Tool } from '../Tool'
 import { AutoUpdaterResult } from '../utils/autoUpdater'
 import { getGlobalConfig, saveGlobalConfig } from '../utils/config'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import { getNextAvailableLogForkNumber } from '../utils/log'
 import {
   getErroredToolUseMessages,

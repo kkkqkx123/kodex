@@ -2,7 +2,7 @@ import { CommandInterface } from '../types'
 import { Command } from '@commander-js/extra-typings'
 import { Doctor } from '../../../screens/Doctor'
 import { render } from 'ink'
-import { logEvent } from '../../../services/statsig'
+import { logEvent } from '../../../services/featureFlags'
 import { PRODUCT_NAME } from '../../../constants/product'
 import React from 'react'
 

@@ -12,7 +12,7 @@ import {
   isNotEmptyMessage,
   normalizeMessages,
 } from '../utils/messages.js'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import type { AssistantMessage, UserMessage } from '../query'
 import { useExitOnCtrlCD } from '../hooks/useExitOnCtrlCD'
 

@@ -6,7 +6,7 @@ import * as React from 'react'
 import { z } from 'zod'
 import { FileEditToolUpdatedMessage } from '../../components/FileEditToolUpdatedMessage'
 import { StructuredDiff } from '../../components/StructuredDiff'
-import { logEvent } from '../../services/statsig'
+import { logEvent } from '../../services/featureFlags'
 import { Tool, ValidationResult } from '../../Tool'
 import { intersperse } from '../../utils/array'
 import {

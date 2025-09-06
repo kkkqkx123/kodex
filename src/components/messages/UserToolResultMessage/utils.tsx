@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { Tool } from '../../../Tool'
 import { GlobTool } from '../../../tools/GlobTool/GlobTool'
 import { GrepTool } from '../../../tools/GrepTool/GrepTool'
-import { logEvent } from '../../../services/statsig'
+import { logEvent } from '../../../services/featureFlags'
 
 function getToolUseFromMessages(
   toolUseID: string,

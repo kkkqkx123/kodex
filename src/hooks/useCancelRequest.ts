@@ -1,6 +1,6 @@
 import { useInput } from 'ink'
 import { ToolUseConfirm } from '../components/permissions/PermissionRequest'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import { BinaryFeedbackContext } from '../screens/REPL'
 import type { SetToolJSXFn } from '../Tool'
 

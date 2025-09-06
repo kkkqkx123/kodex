@@ -2,7 +2,7 @@ import { TextBlock, ToolUseBlock } from '@anthropic-ai/sdk/resources/index.mjs'
 import { AssistantMessage, BinaryFeedbackResult } from '../../query'
 import { ContentBlock } from '@anthropic-ai/sdk/resources/messages/messages'
 import { MAIN_QUERY_TEMPERATURE } from '../../services/claude'
-import { getDynamicConfig, logEvent } from '../../services/statsig'
+import { getDynamicConfig, logEvent } from '../../services/featureFlags'
 
 import { isEqual, zip } from 'lodash-es'
 import { getGitState } from '../../utils/git'

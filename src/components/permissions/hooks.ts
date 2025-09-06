@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { logUnaryEvent, CompletionType } from '../../utils/unaryLogging'
 import { ToolUseConfirm } from '../../components/permissions/PermissionRequest'
 import { env } from '../../utils/env'
-import { logEvent } from '../../services/statsig'
+import { logEvent } from '../../services/featureFlags'
 
 type UnaryEventType = {
   completion_type: CompletionType

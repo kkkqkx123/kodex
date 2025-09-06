@@ -1,6 +1,6 @@
 import { CommandInterface } from '../types'
 import { Command } from '@commander-js/extra-typings'
-import { checkGate, logEvent } from '../../../services/statsig'
+import { checkGate, logEvent } from '../../../services/featureFlags'
 import { GATE_USE_EXTERNAL_UPDATER } from '../../../constants/betas'
 import { getLatestVersion, installGlobalPackage } from '../../../utils/autoUpdater'
 import { MACRO } from '../../../constants/macros'

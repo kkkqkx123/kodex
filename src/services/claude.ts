@@ -25,7 +25,7 @@ import {
   normalizeContentFromAPI,
 } from '../utils/messages'
 import { countTokens } from '../utils/tokens'
-import { logEvent } from './statsig'
+import { logEvent } from './featureFlags'
 import { withVCR } from './vcr'
 import {
   debug as debugLogger,

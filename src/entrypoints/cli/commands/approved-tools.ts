@@ -6,7 +6,7 @@ import {
   handleRemoveApprovedTool 
 } from '../../../commands/approvedTools';
 import { getCwd } from '../../../utils/state';
-import { logEvent } from '../../../services/statsig';
+import { logEvent } from '../../../services/featureFlags';
 
 /**
  * approved-tools 命令实现

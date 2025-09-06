@@ -4,7 +4,7 @@ import {
   systemReminderService,
 } from '../services/systemReminder'
 import { getAgentFilePath } from '../utils/agentStorage'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 
 interface FileTimestamp {
   path: string

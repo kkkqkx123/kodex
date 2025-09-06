@@ -16,7 +16,7 @@ import {
   queryModel,
 } from './services/claude.js'
 import { emitReminderEvent } from './services/systemReminder'
-import { logEvent } from './services/statsig'
+import { logEvent } from './services/featureFlags'
 import { all } from './utils/generators'
 import { logError } from './utils/log'
 import {

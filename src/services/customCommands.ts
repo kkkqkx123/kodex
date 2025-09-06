@@ -5,7 +5,7 @@ import { memoize } from 'lodash-es'
 import type { MessageParam } from '@anthropic-ai/sdk/resources/index.mjs'
 import type { Command } from '../commands'
 import { getCwd } from '../utils/state'
-import { logEvent } from './statsig'
+import { logEvent } from './featureFlags'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 

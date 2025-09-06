@@ -17,7 +17,7 @@ import { getModelManager } from '../../utils/model'
 import BashToolResultMessage from './BashToolResultMessage'
 import { BANNED_COMMANDS, PROMPT } from './prompt'
 import { formatOutput, getCommandFilePaths } from './utils'
-import { logEvent } from '../../services/statsig'
+import { logEvent } from '../../services/featureFlags'
 
 export const inputSchema = z.strictObject({
   command: z.string().describe('The command to execute'),

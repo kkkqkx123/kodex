@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import { hasPermissionsToUseTool } from '../permissions'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import { BashTool, inputSchema } from '../tools/BashTool/BashTool'
 import { getCommandSubcommandPrefix } from '../utils/commands'
 import { REJECT_MESSAGE } from '../utils/messages'

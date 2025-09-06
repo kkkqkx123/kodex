@@ -2,7 +2,7 @@ import { OpenAI } from 'openai'
 import { getGlobalConfig, GlobalConfig } from '../utils/config'
 import { ProxyAgent, fetch, Response } from 'undici'
 import { setSessionState, getSessionState } from '../utils/sessionState'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import { debug as debugLogger, getCurrentRequest } from '../utils/debugLogger'
 
 // Helper function to calculate retry delay with exponential backoff

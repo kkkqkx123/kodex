@@ -1,7 +1,7 @@
 import { CommandInterface } from '../types'
 import { Command } from '@commander-js/extra-typings'
 import { getContext, setContext, removeContext } from '../../../context'
-import { logEvent } from '../../../services/statsig'
+import { logEvent } from '../../../services/featureFlags'
 import { setup } from '../../cli/utils'
 import { cwd } from 'process'
 import { omit } from 'lodash-es'

@@ -5,7 +5,7 @@ import * as url from 'url'
 
 import { OAUTH_CONFIG } from '../constants/oauth'
 import { openBrowser } from '../utils/browser'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import { logError } from '../utils/log'
 import { resetAnthropicClient } from './claude'
 import {

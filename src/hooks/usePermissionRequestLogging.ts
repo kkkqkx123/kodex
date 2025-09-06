@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { logEvent } from '../services/statsig'
+import { logEvent } from '../services/featureFlags'
 import { logUnaryEvent, CompletionType } from '../utils/unaryLogging'
 import { ToolUseConfirm } from '../components/permissions/PermissionRequest'
 import { env } from '../utils/env'

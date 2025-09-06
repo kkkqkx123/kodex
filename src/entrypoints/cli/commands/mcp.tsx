@@ -14,7 +14,7 @@ import { handleMcprcServerApprovals } from '../../../services/mcpServerApproval'
 import { setup, showSetupScreens, parseEnvVars } from '../utils';
 import { existsSync } from 'fs';
 import { cwd } from 'process';
-import { logEvent } from '../../../services/statsig';
+import { logEvent } from '../../../services/featureFlags';
 import { PRODUCT_COMMAND, PRODUCT_NAME } from '../../../constants/product';
 import { React } from 'react';
 

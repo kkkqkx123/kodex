@@ -1,5 +1,5 @@
 export const DESCRIPTION =
-  'Creates and manages todo items for task tracking and progress management in the current session.'
+  'Creates and manages todo items for task tracking and progress management. Use this tool to create, update, and manage todo lists with proper formatting.'
 
 export const PROMPT = `Use this tool to create and manage todo items for tracking tasks and progress. This tool provides comprehensive todo management:
 
@@ -22,6 +22,35 @@ Skip using this tool when:
 2. The task is trivial and tracking it provides no organizational benefit
 3. The task can be completed in less than 3 trivial steps
 4. The task is purely conversational or informational
+
+## Required Input Format
+
+You MUST provide the todos as an array in the following format:
+
+\`\`\`json
+{
+  "todos": [
+    {
+      "content": "Task description",
+      "status": "pending|in_progress|completed",
+      "priority": "high|medium|low",
+      "id": "unique_identifier"
+    }
+  ]
+}
+\`\`\`
+
+### Field Requirements:
+- **content**: A clear, descriptive task description (string, required)
+- **status**: Current state of the task (required, must be one of: "pending", "in_progress", "completed")
+- **priority**: Task priority level (required, must be one of: "high", "medium", "low")
+- **id**: Unique identifier for the task (string, required)
+
+### Important Rules:
+1. **Provide the COMPLETE todo list** - Include ALL tasks, not just new or updated ones
+2. **Maintain unique IDs** - Each task must have a unique ID that persists across updates
+3. **One in_progress task only** - Only one task should have status "in_progress" at any time
+4. **Valid status values only** - Use exactly "pending", "in_progress", or "completed" (no other values)
 
 ## Task States and Management
 
@@ -56,8 +85,35 @@ Skip using this tool when:
 
 - **Create new todos**: Add tasks with content, priority, and status
 - **Update existing todos**: Modify any aspect of a todo (status, priority, content)
-- **Delete todos**: Remove completed or irrelevant tasks
+- **Delete todos**: Remove completed or irrelevant tasks by omitting them from the list
 - **Batch operations**: Update multiple todos in a single operation
-- **Clear all todos**: Reset the entire todo list
+- **Clear all todos**: Reset the entire todo list by providing an empty array
+
+## Example Usage
+
+\`\`\`json
+{
+  "todos": [
+    {
+      "content": "Analyze requirements and create technical specification",
+      "status": "completed",
+      "priority": "high",
+      "id": "task-1"
+    },
+    {
+      "content": "Implement core functionality",
+      "status": "in_progress",
+      "priority": "high",
+      "id": "task-2"
+    },
+    {
+      "content": "Write unit tests",
+      "status": "pending",
+      "priority": "medium",
+      "id": "task-3"
+    }
+  ]
+}
+\`\`\`
 
 When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.`

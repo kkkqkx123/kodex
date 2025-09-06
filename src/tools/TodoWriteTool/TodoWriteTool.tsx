@@ -10,8 +10,11 @@ import { startWatchingTodoFile } from '../../services/fileFreshness'
 import { DESCRIPTION, PROMPT } from './prompt'
 import { getTheme } from '../../utils/theme'
 
-const TodoItemSchema = z.object({
-  content: z.string().min(1).describe('The task description or content'),
+// Flexible schema that accepts LLM's natural format
+const FlexibleTodoItemSchema = z.object({
+  // Accept both 'content' and 'description' fields
+  content: z.string().min(1).optional().describe('The task description or content'),
+  description: z.string().min(1).optional().describe('The task description (alternative to content)'),
   status: z
     .enum(['pending', 'in_progress', 'completed'])
     .describe('Current status of the task'),
@@ -21,9 +24,25 @@ const TodoItemSchema = z.object({
   id: z.string().min(1).describe('Unique identifier for the task'),
 })
 
-const inputSchema = z.strictObject({
-  todos: z.array(TodoItemSchema).describe('The updated todo list'),
+// Accept multiple input formats that LLM might generate
+const inputSchema = z.object({
+  todos: z.array(FlexibleTodoItemSchema).describe('The updated todo list')
 })
+
+function normalizeTodoItem(data: z.infer<typeof FlexibleTodoItemSchema>): TodoItem {
+  // Normalize the data: use content if provided, otherwise use description
+  const content = data.content || data.description;
+  if (!content) {
+    throw new Error('Todo item must have either content or description field');
+  }
+
+  return {
+    content,
+    status: data.status,
+    priority: data.priority,
+    id: data.id
+  };
+}
 
 function validateTodos(todos: TodoItem[]): ValidationResult {
   // Check for duplicate IDs
@@ -203,17 +222,47 @@ export const TodoWriteTool = {
       </Box>
     )
   },
-  async validateInput({ todos }: z.infer<typeof inputSchema>) {
-    // Type assertion to ensure todos match TodoItem[] interface
-    const todoItems = todos as TodoItem[]
+  async validateInput(input: z.infer<typeof inputSchema> | TodoItem[]) {
+    // Handle both input formats:
+    // 1. Object with todos array: { todos: [...] }
+    // 2. Direct array: [...]
+    let rawTodos: any[];
+    if (Array.isArray(input)) {
+      rawTodos = input;
+    } else if (input && typeof input === 'object' && 'todos' in input) {
+      rawTodos = input.todos;
+    } else {
+      // Handle case where input is the direct object structure
+      rawTodos = [input];
+    }
+    
+    // Normalize todo items
+    const todoItems: TodoItem[] = rawTodos.map(item => normalizeTodoItem(item));
+    
     const validation = validateTodos(todoItems)
     if (!validation.result) {
       return validation
     }
     return { result: true }
   },
-  async *call({ todos }: z.infer<typeof inputSchema>, context) {
+  async *call(input: z.infer<typeof inputSchema> | TodoItem[], context) {
     try {
+      // Handle both input formats:
+      // 1. Object with todos array: { todos: [...] }
+      // 2. Direct array: [...]
+      let rawTodos: any[];
+      if (Array.isArray(input)) {
+        rawTodos = input;
+      } else if (input && typeof input === 'object' && 'todos' in input) {
+        rawTodos = input.todos;
+      } else {
+        // Handle case where input is the direct object structure
+        rawTodos = [input];
+      }
+      
+      // Normalize todo items
+      const todoItems: TodoItem[] = rawTodos.map(item => normalizeTodoItem(item));
+      
       // Get agent ID from context
       const agentId = context?.agentId
 
@@ -224,9 +273,6 @@ export const TodoWriteTool = {
 
       // Store previous todos for comparison (agent-scoped)
       const previousTodos = getTodos(agentId)
-
-      // Type assertion to ensure todos match TodoItem[] interface
-      const todoItems = todos as TodoItem[]
 
       // Note: Validation already done in validateInput, no need for duplicate validation
       // This eliminates the double validation issue

@@ -5,7 +5,7 @@ import { Tool } from '../../Tool'
 import { DESCRIPTION, PROMPT } from './prompt'
 import { getTheme } from '../../utils/theme'
 import { MessageResponse } from '../../components/MessageResponse'
-import { checkGate, logEvent } from '../../services/statsig'
+import { checkGate, logEvent } from '../../services/featureFlags'
 import { USE_BEDROCK, USE_VERTEX } from '../../utils/model'
 
 const thinkToolSchema = z.object({
