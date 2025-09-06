@@ -63,7 +63,7 @@ graph TB
 
 ### 3. Specific Extraction Targets
 
-#### 3.1 SignalHandlerService (`src/services/SignalHandlerService.ts`)
+#### 3.1 SignalHandlerService (`src/screens/REPL/SignalHandlerService.ts`)
 ```typescript
 // Extract SIGINT handling, cleanup logic, and process management
 class SignalHandlerService {
@@ -75,7 +75,7 @@ class SignalHandlerService {
 }
 ```
 
-#### 3.2 REPLStateManager (`src/utils/REPLStateManager.ts`)
+#### 3.2 REPLStateManager (`src/screens/REPL/REPLStateManager.ts`)
 ```typescript
 // Centralized state management for REPL-specific state
 class REPLStateManager {
@@ -89,7 +89,7 @@ class REPLStateManager {
 }
 ```
 
-#### 3.3 QueryCoordinatorService (`src/services/QueryCoordinatorService.ts`)
+#### 3.3 QueryCoordinatorService (`src/screens/REPL/QueryCoordinatorService.ts`)
 ```typescript
 // Handle the complex query logic and message processing
 class QueryCoordinatorService {
@@ -103,7 +103,7 @@ class QueryCoordinatorService {
 }
 ```
 
-#### 3.4 MessageRenderer (`src/components/MessageRenderer.tsx`)
+#### 3.4 MessageRenderer (`src/screens/REPL/MessageRenderer.tsx`)
 ```typescript
 // Extract the complex message rendering logic
 const MessageRenderer: React.FC<MessageRendererProps> = ({
@@ -116,7 +116,7 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({
 }
 ```
 
-#### 3.5 ToolUIManager (`src/utils/ToolUIManager.ts`)
+#### 3.5 ToolUIManager (`src/screens/REPL/ToolUIManager.ts`)
 ```typescript
 // Manage tool UI state and rendering
 class ToolUIManager {
@@ -194,16 +194,14 @@ src/
   screens/
     REPL.tsx                 # ~250 lines (core component)
     REPL.types.ts          # Type definitions
-  services/
-    SignalHandlerService.ts
-    QueryCoordinatorService.ts
-    REPLStateManager.ts
-  components/
-    MessageRenderer.tsx
-    ToolUIRenderer.tsx
-  utils/
-    ToolUIManager.ts
-    DialogManager.ts
+    REPL/
+      SignalHandlerService.ts
+      QueryCoordinatorService.ts
+      REPLStateManager.ts
+      MessageRenderer.tsx
+      ToolUIRenderer.tsx
+      ToolUIManager.ts
+      DialogManager.ts
 ```
 
 This refactoring will significantly improve the codebase structure while maintaining all existing functionality. The core REPL component will be reduced from 900+ lines to around 250 lines, making it much more maintainable.
