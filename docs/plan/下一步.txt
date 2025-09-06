@@ -3,3 +3,20 @@
 2.自动补全后显示未移除上面的ui
 
 3.退出时清理ui
+
+4.search集成代码库索引+MCP集成代码库索引
+
+5.agent专属工具改通用
+
+6.支持在配置文件中禁用
+
+7.工具调用报错改摘要
+
+8.提示词改英文
+
+9.进一步限制搜索结果
+
+10.重构REPL
+
+11.✅ 重构agents模块，放到专门的src/agents，并拆分（已完成规划）
+12.实施agents模块重构（按照docs/plan/agents-refactor-implementation.md）
