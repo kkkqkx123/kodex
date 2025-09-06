@@ -88,6 +88,9 @@ export type ModelProfile = {
   isGPT5?: boolean // Auto-detected GPT-5 model flag
   validationStatus?: 'valid' | 'needs_repair' | 'auto_repaired' // Configuration status
   lastValidation?: number // Last validation timestamp
+  // 🔧 Model list check configuration
+  skipModelListCheck?: boolean // Whether to skip model list endpoint check
+  modelListEndpoint?: string // Custom model list endpoint path
 }
 
 export type ModelPointerType = 'main' | 'task' | 'reasoning' | 'quick'
