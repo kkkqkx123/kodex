@@ -360,9 +360,7 @@ const messagesJSX = useMemo(() => <MessageContainer {...messageRendererProps} />
   return (
     <PermissionProvider isBypassPermissionsModeAvailable={!safeMode} children={undefined}>
       <ModeIndicator />
-      <React.Fragment key="static-messages">
-        {messagesJSX}
-      </React.Fragment>
+      {messagesJSX}
       <ToolUIRenderer toolUIManagerProps={toolUIManagerProps} />
       <DialogManager {...dialogManagerProps} />
 
