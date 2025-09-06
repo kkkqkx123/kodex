@@ -2,10 +2,13 @@ import { type REPLState, type StateListener, type UnsubscribeFunction, type Tool
 import { type Message as MessageType, type AssistantMessage, type BinaryFeedbackResult } from '../../query.js'
 import { AutoUpdaterResult } from '../../utils/autoUpdater'
 import { getNextAvailableLogForkNumber } from '../../utils/log'
+import { InputStateManager, type InputState } from './InputStateManager'
+import { shallowEqual } from '../../utils/shallowEqual'
 
 export class REPLStateManager {
-  private state: REPLState
+  private state: Omit<REPLState, 'inputValue'>
   private listeners: StateListener[] = []
+  private inputStateManager: InputStateManager
 
   constructor(initialMessages?: MessageType[], initialPrompt?: string, messageLogName?: string, initialForkNumber?: number) {
     this.state = {
@@ -14,7 +17,6 @@ export class REPLStateManager {
       abortController: null,
       toolJSX: null,
       toolUseConfirm: null,
-      inputValue: '',
       inputMode: 'prompt',
       submitCount: 0,
       isMessageSelectorVisible: false,
@@ -26,19 +28,31 @@ export class REPLStateManager {
       forkNumber: getNextAvailableLogForkNumber(messageLogName ?? '', initialForkNumber ?? 0, 0),
       forkConvoWithMessagesOnTheNextRender: null,
     }
+    
+    this.inputStateManager = new InputStateManager(initialPrompt ?? '')
   }
 
   getState(): REPLState {
-    return { ...this.state }
+    return {
+      ...this.state,
+      inputValue: this.inputStateManager.getState().value
+    }
   }
 
   updateState(updater: (state: REPLState) => REPLState): void {
-    const newState = updater({ ...this.state })
+    const newState = updater(this.getState())
     
+    // Separate input value from other state properties
+    const { inputValue, ...otherState } = newState
     // Only update and notify if state actually changed
-    if (JSON.stringify(this.state) !== JSON.stringify(newState)) {
-      this.state = newState
+    if (!this.shallowEqual(this.state, otherState)) {
+      this.state = otherState
       this.notifyListeners()
+    }
+    
+    // Update input state separately
+    if (inputValue !== this.inputStateManager.getState().value) {
+      this.inputStateManager.setValue(inputValue)
     }
   }
 
@@ -52,8 +66,16 @@ export class REPLStateManager {
     }
   }
 
+  subscribeToInputState(listener: (state: InputState) => void): UnsubscribeFunction {
+    return this.inputStateManager.subscribe(listener)
+  }
+
   private notifyListeners(): void {
-    this.listeners.forEach(listener => listener(this.state))
+    this.listeners.forEach(listener => listener(this.getState()))
+  }
+
+  private shallowEqual(obj1: any, obj2: any): boolean {
+    return shallowEqual(obj1, obj2)
   }
 
   // Convenience methods for specific state updates
@@ -85,7 +107,7 @@ export class REPLStateManager {
   }
 
   setInputValue(inputValue: string): void {
-    this.updateState(state => ({ ...state, inputValue }))
+    this.inputStateManager.setValue(inputValue)
   }
 
   setInputMode(inputMode: 'bash' | 'prompt' | 'koding'): void {

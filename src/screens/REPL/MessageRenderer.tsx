@@ -24,18 +24,22 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   toolUseConfirm,
   isMessageSelectorVisible,
 }) => {
+  const logoAndOnboarding = useMemo(() => (
+    <Box flexDirection="column" key="logo-and-onboarding">
+      <Logo mcpClients={mcpClients} isDefaultModel={isDefaultModel} />
+      <ProjectOnboarding workspaceDir={getOriginalCwd()} />
+    </Box>
+  ), [mcpClients, isDefaultModel]);
+
   const messagesJSX = useMemo(() => {
+    const reorderedMessages = reorderMessages(messages);
     return [
       {
         type: 'static',
-        jsx: (
-          <Box flexDirection="column" key="logo">
-            <Logo mcpClients={mcpClients} isDefaultModel={isDefaultModel} />
-            <ProjectOnboarding workspaceDir={getOriginalCwd()} />
-          </Box>
-        ),
+        jsx: logoAndOnboarding,
+        key: 'logo-and-onboarding',
       },
-      ...reorderMessages(messages).map(_ => {
+      ...reorderedMessages.map((_, index) => {
         const toolUseID = getToolUseID(_)
         const message =
           _.type === 'progress' ? (
@@ -43,7 +47,6 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
               // Hack: TaskTool interrupts use Progress messages, so don't
               // need an extra ⎿ because <Message /> already adds one.
               // TODO: Find a cleaner way to do this.
-              // Check if we're in PowerShell and adjust rendering
               _.content.message.content[0].text === INTERRUPT_MESSAGE ? (
               <Message
                 message={_.content}
@@ -114,10 +117,11 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
           return {
             type: 'static',
             jsx: (
-              <Box key={_.uuid} width="100%">
+              <Box key={`message-${_.uuid || index}`} width="100%">
                 {message}
               </Box>
             ),
+            key: `message-${_.uuid || index}`,
           }
         }
 
@@ -128,27 +132,28 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
               <Box
                 borderStyle="single"
                 borderColor={type === 'static' ? 'green' : 'red'}
-                key={_.uuid}
+                key={`message-debug-${_.uuid || index}`}
                 width="100%"
               >
                 {message}
               </Box>
             ),
+            key: `message-debug-${_.uuid || index}`,
           }
         }
 
         return {
           type,
           jsx: (
-            <Box key={_.uuid} width="100%">
+            <Box key={`message-${_.uuid || index}`} width="100%">
               {message}
             </Box>
           ),
+          key: `message-${_.uuid || index}`,
         }
       }),
     ]
   }, [
-    forkNumber,
     messages,
     tools,
     verbose,
@@ -159,14 +164,11 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
     toolUseConfirm,
     isMessageSelectorVisible,
     unresolvedToolUseIDs,
-    mcpClients,
-    isDefaultModel,
+    logoAndOnboarding,
   ])
 
   return messagesJSX.map(item => item.jsx)
 }
-
-// Helper function to determine if a message should be rendered statically
 function shouldRenderStatically(
   message: NormalizedMessage,
   messages: NormalizedMessage[],

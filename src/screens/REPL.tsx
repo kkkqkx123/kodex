@@ -6,9 +6,11 @@ import { PermissionProvider } from '../context/PermissionContext'
 import { ModeIndicator } from '../components/ModeIndicator'
 import PromptInput from '../components/PromptInput'
 import { MessageSelector } from '../components/MessageSelector'
+import { InputContainer } from './REPL/InputContainer'
 import { Message } from '../components/Message'
 import { MessageResponse } from '../components/MessageResponse'
 import { Spinner } from '../components/Spinner'
+import { MessageContainer } from './REPL/MessageContainer'
 import { CostThresholdDialog } from '../components/CostThresholdDialog'
 import { useApiKeyVerification } from '../hooks/useApiKeyVerification'
 import { useCancelRequest } from '../hooks/useCancelRequest'
@@ -69,8 +71,10 @@ export function REPL({
   )
 
   const [state, setState] = useState<REPLState>(stateManager.getState())
+  const [inputValue, setInputValue] = useState<string>(initialPrompt ?? '')
+  const [cursorOffset, setCursorOffset] = useState<number>(initialPrompt?.length ?? 0)
 
-  // Subscribe to state changes
+  // Subscribe to state changes (excluding input value)
   useEffect(() => {
     const unsubscribe = stateManager.subscribe((newState: REPLState) => {
       setState(newState)
@@ -78,12 +82,20 @@ export function REPL({
     return unsubscribe
   }, [stateManager])
 
-  // Create direct access to input value
-  const getInputValue = useCallback(() => {
-    return stateManager.getState().inputValue
+  // Subscribe to input state changes separately
+  useEffect(() => {
+    const unsubscribe = stateManager.subscribeToInputState((inputState) => {
+      setInputValue(inputState.value)
+    })
+    return unsubscribe
   }, [stateManager])
 
-  const setInputValue = useCallback((value: string) => {
+  // Create direct access to input value
+  const getInputValue = useCallback(() => {
+    return inputValue
+  }, [inputValue])
+
+  const setInputValueCallback = useCallback((value: string) => {
     stateManager.setInputValue(value)
   }, [stateManager])
 
@@ -314,12 +326,11 @@ export function REPL({
     toolUseConfirm: state.toolUseConfirm,
     isMessageSelectorVisible: state.isMessageSelectorVisible,
   }
-
-  const messagesJSX = useMemo(() => <MessageRenderer {...messageRendererProps} />, [
-    normalizedMessages, tools, verbose, debug, state.forkNumber, 
-    mcpClients, isDefaultModel, erroredToolUseIDs, inProgressToolUseIDs, 
-    unresolvedToolUseIDs, state.toolJSX, state.toolUseConfirm, state.isMessageSelectorVisible
-  ])
+const messagesJSX = useMemo(() => <MessageContainer {...messageRendererProps} />, [
+  normalizedMessages, tools, verbose, debug, state.forkNumber,
+  mcpClients, isDefaultModel, erroredToolUseIDs, inProgressToolUseIDs,
+  unresolvedToolUseIDs, state.toolJSX, state.toolUseConfirm, state.isMessageSelectorVisible
+]);
 
   // Tool UI manager props
   const toolUIManagerProps: ToolUIManagerProps = {
@@ -362,7 +373,7 @@ export function REPL({
         !(!state.isLoading && state.showCostDialog) &&
         !state.shouldHideInputBox && (
           <>
-            <PromptInput
+            <InputContainer
               commands={commands}
               forkNumber={state.forkNumber}
               messageLogName={messageLogName}
@@ -377,7 +388,9 @@ export function REPL({
               onAutoUpdaterResult={stateManager.setAutoUpdaterResult.bind(stateManager)}
               autoUpdaterResult={state.autoUpdaterResult}
               input={getInputValue()}
-              onInputChange={setInputValue}
+              onInputChange={setInputValueCallback}
+              cursorOffset={cursorOffset}
+              onCursorOffsetChange={setCursorOffset}
               mode={state.inputMode}
               onModeChange={stateManager.setInputMode.bind(stateManager)}
               submitCount={state.submitCount}

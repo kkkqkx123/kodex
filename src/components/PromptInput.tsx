@@ -99,6 +99,8 @@ type Props = {
   abortController: AbortController | null
   onModelChange?: () => void
   onExit?: () => void
+  cursorOffset?: number
+  onCursorOffsetChange?: (offset: number) => void
 }
 
 function getPastedTextPrompt(text: string): string {
@@ -133,6 +135,8 @@ function PromptInput({
   readFileTimestamps,
   onModelChange,
   onExit,
+  cursorOffset: cursorOffsetProp,
+  onCursorOffsetChange,
 }: Props): React.ReactNode {
   const [isAutoUpdating, setIsAutoUpdating] = useState(false)
   const [exitMessage, setExitMessage] = useState<{
@@ -150,7 +154,7 @@ function PromptInput({
   })
   const [pastedImage, setPastedImage] = useState<string | null>(null)
   const [placeholder, setPlaceholder] = useState('')
-  const [cursorOffset, setCursorOffset] = useState<number>(input.length)
+  const [cursorOffset, setCursorOffset] = useState<number>(cursorOffsetProp ?? input.length)
   const [pastedText, setPastedText] = useState<string | null>(null)
 
   // Permission context for mode management
@@ -178,7 +182,7 @@ function PromptInput({
     input,
     cursorOffset,
     onInputChange,
-    setCursorOffset,
+    setCursorOffset: onCursorOffsetChange || setCursorOffset,
     commands,
     onSubmit,
   })
@@ -658,7 +662,7 @@ function PromptInput({
             isDimmed={isDisabled || isLoading}
             disableCursorMovementForUpDownKeys={completionActive}
             cursorOffset={cursorOffset}
-            onChangeCursorOffset={setCursorOffset}
+            onChangeCursorOffset={onCursorOffsetChange || setCursorOffset}
             onPaste={onTextPaste}
             onSpecialKey={(input, key) => {
               // Handle Shift+M for model switching

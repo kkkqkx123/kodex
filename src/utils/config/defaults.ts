@@ -2,6 +2,7 @@ import type { ThemeNames } from '../theme'
 import type { GlobalConfig, ProjectConfig, ProviderType } from './types'
 
 export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
+  projects: {},
   allowedTools: [],
   context: {},
   history: [],
