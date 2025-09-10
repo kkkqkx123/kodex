@@ -221,6 +221,7 @@ export class QueryCoordinatorService {
           // TODO: setHistoryIndex
         }
       }
+      allMessages = [...allMessages, ...newMessages]
       setMessages(allMessages)
 
       // The last message is an assistant message if the user input was a bash command,

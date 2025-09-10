@@ -26,13 +26,34 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   isMessageSelectorVisible,
 }) => {
 
-
-  const logoAndOnboarding = useMemo(() => (
-    <Box flexDirection="column" key="logo-and-onboarding">
-      <Logo mcpClients={mcpClients} isDefaultModel={isDefaultModel} />
-      <ProjectOnboarding workspaceDir={getOriginalCwd()} />
-    </Box>
-  ), [mcpClients, isDefaultModel]);
+  // 首次显示检测 - 基于消息数量和内容判断是否为全新会话
+  const isFreshSession = useMemo(() => {
+    // 如果没有任何消息，肯定是新会话
+    if (messages.length === 0) {
+      return true;
+    }
+    
+    // 如果只有一条消息，且这条消息是用户消息（来自initialPrompt），仍然认为是新会话
+    if (messages.length === 1 && messages[0]?.type === 'user') {
+      return true;
+    }
+    
+    return false;
+  }, [messages]);
+  
+  const logoAndOnboarding = useMemo(() => {
+    // 只有在全新会话（没有消息）时才显示logo
+    if (!isFreshSession) {
+      return <Box height={0} key="empty-logo" />;
+    }
+    
+    return (
+      <Box flexDirection="column" key="logo-and-onboarding">
+        <Logo mcpClients={mcpClients} isDefaultModel={isDefaultModel} />
+        <ProjectOnboarding workspaceDir={getOriginalCwd()} />
+      </Box>
+    );
+  }, [mcpClients, isDefaultModel, isFreshSession]);
 
   // 缓存static元素，避免任务执行期间重新计算
   const cachedStaticElements = useMemo(() => {
