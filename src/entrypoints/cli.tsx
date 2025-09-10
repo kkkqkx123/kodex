@@ -5,7 +5,10 @@ import { PRODUCT_COMMAND, PRODUCT_NAME } from '../constants/product'
 // Declare global gcInterval for PowerShell memory leak fix
 declare global {
   var gcInterval: NodeJS.Timeout | null
+  var inkInstance: import('ink').Instance | null // 添加Ink实例的全局声明
 }
+
+global.inkInstance = null // 初始化全局Ink实例
 
 initSentry() // Initialize Sentry as early as possible
 
@@ -238,8 +241,6 @@ ${commandList}`,
         })
         await setup(cwd, safe)
 
-        assertMinVersion()
-
         const [tools, mcpClients] = await Promise.all([
           getTools(
             enableArchitect ?? getCurrentProjectConfig().enableArchitectTool,
@@ -271,7 +272,8 @@ ${commandList}`,
         } else {
           const isDefaultModel = await isDefaultSlowAndCapableModel()
 
-          render(
+          // 保存Ink实例到全局变量
+          global.inkInstance = render(
             <REPL
               commands={commands}
               debug={debug}
