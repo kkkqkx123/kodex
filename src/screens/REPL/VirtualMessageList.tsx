@@ -1,8 +1,7 @@
-import React, { useMemo, useEffect } from 'react'
+import React, { useMemo } from 'react'
 import { Box, Text } from 'ink'
 import { MessageRenderer } from './MessageRenderer'
 import { useTerminalSize } from '../../hooks/useTerminalSize'
-import { StaticElementManager } from './StaticElementManager'
 import type { MessageContainerProps } from './REPL.types'
 
 interface VirtualMessageListProps extends MessageContainerProps {
@@ -28,7 +27,7 @@ export const VirtualMessageList: React.FC<VirtualMessageListProps> = ({
   const { height: terminalHeight } = useTerminalSize()
   
   // 计算可见消息数量
-  const { visibleMessages, visibleRange } = useMemo(() => {
+  const { visibleMessages } = useMemo(() => {
     if (messages.length === 0) {
       return { visibleMessages: [], visibleRange: { start: 0, end: 0 } }
     }
@@ -48,12 +47,6 @@ export const VirtualMessageList: React.FC<VirtualMessageListProps> = ({
       visibleRange: { start, end }
     }
   }, [messages, terminalHeight])
-
-  // 监听任务状态变化
-  useEffect(() => {
-    const hasActiveProcess = inProgressToolUseIDs.size > 0 || toolJSX || toolUseConfirm
-    StaticElementManager.getInstance().setTaskStatus(hasActiveProcess)
-  }, [inProgressToolUseIDs.size, toolJSX, toolUseConfirm])
 
   // 渲染可见消息
   const rendererProps = useMemo(() => ({
@@ -102,11 +95,7 @@ export const VirtualMessageList: React.FC<VirtualMessageListProps> = ({
       )}
       
       {/* 渲染可见消息 */}
-      <MessageRenderer 
-        {...rendererProps}
-        // 任务执行期间禁用static元素缓存
-        disableStaticCaching={disableStaticCaching}
-      />
+      <MessageRenderer {...rendererProps} />
     </Box>
   )
 }

@@ -8,7 +8,7 @@ import { type MessageRendererProps } from '../REPL.types'
 import type { NormalizedMessage } from '../../utils/messages'
 import { getToolUseID, INTERRUPT_MESSAGE, reorderMessages } from '../../utils/messages'
 import { getOriginalCwd } from '../../utils/state'
-import { StaticElementManager } from './StaticElementManager'
+
 
 export const MessageRenderer: React.FC<MessageRendererProps> = ({
   messages,
@@ -25,11 +25,7 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   toolUseConfirm,
   isMessageSelectorVisible,
 }) => {
-  // 监听任务状态变化
-  useEffect(() => {
-    const hasActiveProcess = inProgressToolUseIDs.size > 0 || toolJSX || toolUseConfirm
-    StaticElementManager.getInstance().setTaskStatus(hasActiveProcess)
-  }, [inProgressToolUseIDs.size, toolJSX, toolUseConfirm])
+
 
   const logoAndOnboarding = useMemo(() => (
     <Box flexDirection="column" key="logo-and-onboarding">
@@ -177,42 +173,7 @@ function shouldRenderStatically(
   messages: NormalizedMessage[],
   unresolvedToolUseIDs: Set<string>,
 ): boolean {
-  // PowerShell-specific rendering adjustments
-  if (process.platform === 'win32' && process.env.PSModulePath) {
-    // In PowerShell, we still want to dynamically render progress messages
-    // and unresolved tool use messages to prevent memory leaks while maintaining UX
-    switch (message.type) {
-      case 'user':
-      case 'assistant': {
-        const toolUseID = getToolUseID(message)
-        if (!toolUseID) {
-          // Static messages for regular user/assistant messages
-          return true
-        }
-        if (unresolvedToolUseIDs.has(toolUseID)) {
-          // Dynamic rendering for unresolved tool use messages
-          return false
-        }
 
-        const correspondingProgressMessage = messages.find(
-          _ => _.type === 'progress' && _.toolUseID === toolUseID,
-        ) as any
-        if (!correspondingProgressMessage) {
-          // Static rendering if no progress message
-          return true
-        }
-
-        // Static rendering if no intersection with unresolved tool use IDs
-        return !intersects(
-          unresolvedToolUseIDs,
-          correspondingProgressMessage.siblingToolUseIDs,
-        )
-      }
-      case 'progress':
-        // Dynamic rendering for progress messages
-        return false
-    }
-  }
   
   switch (message.type) {
     case 'user':

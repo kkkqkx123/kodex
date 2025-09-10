@@ -26,7 +26,7 @@ import {
   setMessagesSetter,
   setModelConfigChangeHandler,
 } from '../messages'
-import { clearTerminal, completeTerminalCleanup, ultraTerminalCleanup, smartTerminalCleanup } from '../utils/terminal'
+import { clearTerminal, completeTerminalCleanup } from '../utils/terminal'
 import { normalizeMessages, isNotEmptyMessage, normalizeMessagesForAPI, getUnresolvedToolUseIDs, getInProgressToolUseIDs, getErroredToolUseMessages } from '../utils/messages'
 import { getGlobalConfig } from '../utils/config'
 import { getOriginalCwd } from '../utils/state'
@@ -447,13 +447,8 @@ const messagesJSX = useMemo(() => <MessageContainer {...messageRendererProps} />
             // Cancel tool use calls/requests
             onCancel()
 
-            // 使用更强的清理机制处理多页内容
+            // 简化清理逻辑，只使用ink清理
             setImmediate(async () => {
-              // 先进行深度清理，确保旧UI完全清除
-              const { ultraTerminalCleanup } = await import('../utils/terminal')
-              await ultraTerminalCleanup()
-              
-              // 然后使用标准清理
               await clearTerminal()
               
               // 重置消息状态

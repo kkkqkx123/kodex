@@ -1,11 +1,9 @@
 import React, { useMemo } from 'react'
 import { MessageRenderer } from './MessageRenderer'
 import { VirtualMessageList } from './VirtualMessageList'
-import { StaticElementManager } from './StaticElementManager'
 import type { MessageContainerProps } from './REPL.types'
 
 // 虚拟化阈值 - 消息超过此数量时启用虚拟化
-// 提高阈值，减少频繁切换导致的UI残留
 const VIRTUALIZATION_THRESHOLD = 20
 
 export const MessageContainer: React.FC<MessageContainerProps> = React.memo(({
@@ -23,9 +21,6 @@ export const MessageContainer: React.FC<MessageContainerProps> = React.memo(({
   toolUseConfirm,
   isMessageSelectorVisible,
 }) => {
-  // 获取任务状态
-  const isTaskInProgress = inProgressToolUseIDs.size > 0 || toolJSX || toolUseConfirm
-  
   // 统一管理的props对象
   const rendererProps = useMemo(() => ({
     messages,
@@ -60,19 +55,8 @@ export const MessageContainer: React.FC<MessageContainerProps> = React.memo(({
   // 根据消息数量决定渲染策略
   const shouldUseVirtualization = messages.length > VIRTUALIZATION_THRESHOLD
 
-  // 任务执行期间，通知StaticElementManager当前状态
-  React.useEffect(() => {
-    StaticElementManager.getInstance().setTaskStatus(isTaskInProgress)
-  }, [isTaskInProgress])
-
   if (shouldUseVirtualization) {
-    return (
-      <VirtualMessageList
-        {...rendererProps}
-        // 任务执行期间禁用静态元素缓存
-        disableStaticCaching={isTaskInProgress}
-      />
-    )
+    return <VirtualMessageList {...rendererProps} />
   }
 
   return <MessageRenderer {...rendererProps} />
