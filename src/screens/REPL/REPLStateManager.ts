@@ -80,14 +80,33 @@ export class REPLStateManager {
 
   // Convenience methods for specific state updates
   setMessages(messages: MessageType[]): void {
-    this.updateState(state => ({ ...state, messages }))
+    // 自动归档旧消息以防止内存泄漏
+    const archivedMessages = this.archiveOldMessages(messages)
+    this.updateState(state => ({ ...state, messages: archivedMessages }))
   }
 
   addMessages(newMessages: MessageType[]): void {
-    this.updateState(state => ({ 
-      ...state, 
-      messages: [...state.messages, ...newMessages] 
-    }))
+    this.updateState(state => {
+      const updatedMessages = [...state.messages, ...newMessages]
+      const archivedMessages = this.archiveOldMessages(updatedMessages)
+      return { 
+        ...state, 
+        messages: archivedMessages 
+      }
+    })
+  }
+
+  private archiveOldMessages(messages: MessageType[]): MessageType[] {
+    const MAX_MESSAGES = 100 // 最大保留消息数量
+    const ARCHIVE_THRESHOLD = 80 // 开始归档的阈值
+    
+    if (messages.length <= MAX_MESSAGES) {
+      return messages
+    }
+    
+    // 保留最新的消息，归档旧消息
+    const startIndex = Math.max(0, messages.length - MAX_MESSAGES)
+    return messages.slice(startIndex)
   }
 
   setLoading(isLoading: boolean): void {

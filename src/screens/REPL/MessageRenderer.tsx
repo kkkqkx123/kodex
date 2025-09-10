@@ -111,11 +111,17 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
           ? 'static'
           : 'transient'
 
-        // PowerShell-specific rendering adjustments
+        // PowerShell-specific rendering adjustments - 优化Windows终端体验
         if (process.platform === 'win32' && process.env.PSModulePath) {
-          // Simplify rendering in PowerShell to prevent memory leaks
+          // 保持动态渲染，但优化性能
+          const isProgressMessage = _.type === 'progress'
+          const hasUnresolvedTool = toolUseID && unresolvedToolUseIDs.has(toolUseID)
+          
+          // 仅对关键消息使用动态渲染
+          const shouldBeDynamic = isProgressMessage || hasUnresolvedTool
+          
           return {
-            type: 'static',
+            type: shouldBeDynamic ? 'transient' : 'static',
             jsx: (
               <Box key={`message-${_.uuid || index}`} width="100%">
                 {message}

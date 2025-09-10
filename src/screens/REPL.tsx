@@ -1,6 +1,7 @@
 import { Box, Newline, Static, Text } from 'ink'
 import * as React from 'react'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 import { Command } from '../commands'
 import { PermissionProvider } from '../context/PermissionContext'
 import { ModeIndicator } from '../components/ModeIndicator'
