@@ -81,7 +81,8 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
     const isTaskInProgress = inProgressToolUseIDs.size > 0 || toolJSX || toolUseConfirm
     
     // 内容长度感知：当消息较多时，强制使用transient模式避免Static组件残留
-    const CONTENT_LENGTH_THRESHOLD = 15
+    // 降低阈值，更早切换到transient模式，减少内存占用
+    const CONTENT_LENGTH_THRESHOLD = 8
     const shouldForceTransient = messages.length >= CONTENT_LENGTH_THRESHOLD
     
     return [

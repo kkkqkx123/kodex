@@ -77,17 +77,44 @@ export async function completeTerminalCleanup(): Promise<void> {
   try {
     if (global.inkInstance) {
       // 多次清理确保完全清除
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 3; i++) {
         global.inkInstance.clear()
         global.inkInstance.rerender(React.createElement('div', {}))
-        await new Promise(resolve => setTimeout(resolve, 20))
+        await new Promise(resolve => setTimeout(resolve, 50))
       }
     }
     
     // 等待清理完成
-    await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise(resolve => setTimeout(resolve, 100))
   } catch (error) {
     console.error('Error during terminal cleanup:', error)
+  }
+}
+
+/**
+ * 定期清理终端 - 防止内存累积和UI重复
+ */
+export function schedulePeriodicCleanup(): () => void {
+  let cleanupCount = 0
+  const maxCleanups = 10 // 限制清理次数
+  
+  const cleanup = async () => {
+    if (cleanupCount >= maxCleanups) return
+    
+    try {
+      await completeTerminalCleanup()
+      cleanupCount++
+    } catch (error) {
+      console.error('Scheduled cleanup error:', error)
+    }
+  }
+  
+  // 每30秒清理一次
+  const interval = setInterval(cleanup, 30000)
+  
+  // 返回清理函数
+  return () => {
+    clearInterval(interval)
   }
 }
 

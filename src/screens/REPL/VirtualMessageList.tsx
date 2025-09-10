@@ -26,18 +26,22 @@ export const VirtualMessageList: React.FC<VirtualMessageListProps> = ({
 }) => {
   const { height: terminalHeight } = useTerminalSize()
   
-  // 计算可见消息数量
+  // 计算可见消息数量 - 更保守的估算
   const { visibleMessages } = useMemo(() => {
     if (messages.length === 0) {
       return { visibleMessages: [], visibleRange: { start: 0, end: 0 } }
     }
 
-    // 每条消息大约占用3行高度，加上一些缓冲
-    const messageHeight = 3
-    const maxVisibleMessages = Math.max(1, Math.floor(terminalHeight / messageHeight))
+    // 终端需要为输入区域预留空间，保守估算每条消息5-8行
+    const availableHeight = Math.max(10, terminalHeight - 8) // 预留8行给输入和状态
+    const messageHeight = 6 // 更保守的每条消息高度估算
+    const maxVisibleMessages = Math.max(1, Math.floor(availableHeight / messageHeight))
+    
+    // 限制最大可见消息数量，防止溢出
+    const hardLimit = Math.min(maxVisibleMessages, 10)
     
     // 始终显示最新的消息
-    const start = Math.max(0, messages.length - maxVisibleMessages)
+    const start = Math.max(0, messages.length - hardLimit)
     const end = messages.length
     
     const visibleMessages = messages.slice(start, end)

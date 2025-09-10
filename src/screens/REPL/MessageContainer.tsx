@@ -3,8 +3,8 @@ import { MessageRenderer } from './MessageRenderer'
 import { VirtualMessageList } from './VirtualMessageList'
 import type { MessageContainerProps } from './REPL.types'
 
-// 虚拟化阈值 - 消息超过此数量时启用虚拟化
-const VIRTUALIZATION_THRESHOLD = 20
+// 虚拟化阈值 - 消息超过此数量时启用虚拟化（降低阈值防止终端溢出）
+const VIRTUALIZATION_THRESHOLD = 8
 
 export const MessageContainer: React.FC<MessageContainerProps> = React.memo(({
   messages,

@@ -97,8 +97,9 @@ export class REPLStateManager {
   }
 
   private archiveOldMessages(messages: MessageType[]): MessageType[] {
-    const MAX_MESSAGES = 100 // 最大保留消息数量
-    const ARCHIVE_THRESHOLD = 80 // 开始归档的阈值
+    // 更激进的归档策略，减少终端内存占用
+    const MAX_MESSAGES = 30 // 大幅减少最大保留消息数量
+    const ARCHIVE_THRESHOLD = 25 // 更早开始归档
     
     if (messages.length <= MAX_MESSAGES) {
       return messages

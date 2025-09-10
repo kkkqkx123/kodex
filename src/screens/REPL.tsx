@@ -26,7 +26,7 @@ import {
   setMessagesSetter,
   setModelConfigChangeHandler,
 } from '../messages'
-import { clearTerminal, completeTerminalCleanup } from '../utils/terminal'
+import { clearTerminal, completeTerminalCleanup, schedulePeriodicCleanup } from '../utils/terminal'
 import { normalizeMessages, isNotEmptyMessage, normalizeMessagesForAPI, getUnresolvedToolUseIDs, getInProgressToolUseIDs, getErroredToolUseMessages } from '../utils/messages'
 import { getGlobalConfig } from '../utils/config'
 import { getOriginalCwd } from '../utils/state'
@@ -197,6 +197,12 @@ export function REPL({
     state.messages,
     stateManager,
   ])
+
+  // 启用定期清理机制，防止UI重复渲染和内存累积
+  useEffect(() => {
+    const cleanup = schedulePeriodicCleanup()
+    return cleanup
+  }, [])
 
   // Handle query
   const handleQuery = useCallback(async (newMessages: any[], passedAbortController?: AbortController) => {
