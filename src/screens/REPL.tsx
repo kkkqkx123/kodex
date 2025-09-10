@@ -252,15 +252,16 @@ export function REPL({
     })
   }, [stateManager])
 
-  // 自动清理机制 - 监听内容长度变化
-  useEffect(() => {
-    const messageCount = state.messages.length
-    
-    // 使用智能清理机制
-    if (messageCount > 0) {
-      smartTerminalCleanup(messageCount).catch(console.error)
-    }
-  }, [state.messages.length])
+  // 自动清理机制已禁用 - 避免黑屏问题
+  // 改为手动触发，仅在特定场景下使用
+  // useEffect(() => {
+  //   const messageCount = state.messages.length
+  //   
+  //   // 使用智能清理机制
+  //   if (messageCount > 0) {
+  //     smartTerminalCleanup(messageCount).catch(console.error)
+  //   }
+  // }, [state.messages.length])
 
   // Initial load
   useEffect(() => {

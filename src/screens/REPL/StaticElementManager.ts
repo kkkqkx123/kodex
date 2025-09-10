@@ -58,9 +58,8 @@ export class StaticElementManager {
   }
 
   private processStaticUpdate(type: 'add' | 'update' | 'remove', key: string, element?: any): void {
-    // 这里可以触发实际的static元素更新
-    // 具体实现将在组件中使用
-    console.log(`Processing static update: ${type} ${key}`)
+    // 静默处理static元素更新，避免控制台输出干扰
+    // 具体实现由组件层处理
   }
 
   subscribe(listener: (state: StaticElementManagerState) => void): () => void {

@@ -1,5 +1,5 @@
 {
-  "name": "@kkkqkx123/kodex",
+  "name": "@kkkqkx123/kode",
   "version": "1.0.03",
   "bin": {
     "kode": "cli.js",
@@ -13,13 +13,13 @@
   "author": "kkkqkx123",
   "license": "Apache-2.0",
   "description": "AI-powered terminal assistant that understands your codebase, edits files, runs commands, and automates development workflows.",
-  "homepage": "https://github.com/shareAI-lab/kode",
+  "homepage": "https://github.com/kkkqkx123/kodex",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shareAI-lab/kode.git"
+    "url": "git+https://github.com/kkkqkx123/kodex.git"
   },
   "bugs": {
-    "url": "https://github.com/shareAI-lab/kode/issues"
+    "url": "https://github.com/kkkqkx123/kodex/issues"
   },
   "files": [
     "cli.js",
@@ -105,6 +105,9 @@
     "string-width": "^8.1.0",
     "strip-ansi": "^7.1.0"
   },
+  "bundledDependencies": [
+    "tsx"
+  ],
   "directories": {
     "doc": "docs",
     "test": "test"

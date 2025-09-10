@@ -5,8 +5,8 @@ import { StaticElementManager } from './StaticElementManager'
 import type { MessageContainerProps } from './REPL.types'
 
 // 虚拟化阈值 - 消息超过此数量时启用虚拟化
-// 调整为更低的值，提前启用虚拟化和清理机制
-const VIRTUALIZATION_THRESHOLD = 8
+// 提高阈值，减少频繁切换导致的UI残留
+const VIRTUALIZATION_THRESHOLD = 20
 
 export const MessageContainer: React.FC<MessageContainerProps> = React.memo(({
   messages,

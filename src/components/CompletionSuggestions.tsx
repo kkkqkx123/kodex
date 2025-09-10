@@ -22,22 +22,15 @@ export const CompletionSuggestions = memo(function CompletionSuggestions({
   const [isVisible, setIsVisible] = useState(true)
   const [renderKey, setRenderKey] = useState(0)
 
-  // 强制清除机制：当输入发生上下文变化时，短暂卸载组件
+  // 智能清除机制：只有当补全上下文发生根本性变化时才触发
   useEffect(() => {
-    const currentPrefix = input.slice(0, 5) // 获取输入前缀
-    const prevPrefix = prevInputRef.current.slice(0, 5)
+    // 只检测补全触发字符的变化（/ @ #），而不是所有输入变化
+    const currentTrigger = input.match(/^([/@#]|\S*\s[/@#])/)?.[0] || ''
+    const prevTrigger = prevInputRef.current.match(/^([/@#]|\S*\s[/@#])/)?.[0] || ''
     
-    if (currentPrefix !== prevPrefix && prevInputRef.current !== '') {
-      // 检测到上下文变化，强制清除
-      setIsVisible(false)
+    // 只在触发字符变化时重置，而不是每次输入变化
+    if (currentTrigger !== prevTrigger && prevInputRef.current !== '') {
       setRenderKey(prev => prev + 1)
-      
-      // 短暂延迟后重新显示，确保旧的渲染被清除
-      const timer = setTimeout(() => {
-        setIsVisible(true)
-      }, 10)
-      
-      return () => clearTimeout(timer)
     }
     
     prevInputRef.current = input
@@ -45,9 +38,7 @@ export const CompletionSuggestions = memo(function CompletionSuggestions({
 
   // 当suggestions为空时，立即隐藏
   useEffect(() => {
-    if (suggestions.length === 0) {
-      setIsVisible(false)
-    }
+    setIsVisible(suggestions.length > 0)
   }, [suggestions])
 
   // 限制建议数量以适应终端高度
@@ -59,7 +50,7 @@ export const CompletionSuggestions = memo(function CompletionSuggestions({
     return suggestions.slice(0, maxVisible)
   }, [suggestions, rows])
 
-  // 渲染建议列表 - 使用更严格的key来确保正确更新
+  // 渲染建议列表 - 使用稳定的key避免不必要的重新创建
   const renderedSuggestions = useMemo(() => {
     if (limitedSuggestions.length === 0) return null
     
@@ -68,7 +59,7 @@ export const CompletionSuggestions = memo(function CompletionSuggestions({
       const displayText = suggestion.displayValue || suggestion.value
       
       return (
-        <Box key={`${input}-${suggestion.value}-${index}`}>
+        <Box key={`${suggestion.type}-${suggestion.value}-${index}`}>
           <Text color={isSelected ? 'cyan' : undefined}>
             {isSelected ? '▸ ' : '  '}
             {displayText}
@@ -76,7 +67,7 @@ export const CompletionSuggestions = memo(function CompletionSuggestions({
         </Box>
       )
     })
-  }, [limitedSuggestions, selectedIndex, input])
+  }, [limitedSuggestions, selectedIndex])
 
   // 获取操作提示文本
   const operationHint = useMemo(() => {
@@ -98,11 +89,8 @@ export const CompletionSuggestions = memo(function CompletionSuggestions({
     return null
   }
 
-  // 使用强制重新渲染的key
-  const forceRenderKey = `completion-${renderKey}-${input.slice(0, 8)}-${suggestions.length}`
-
   return (
-    <Box key={forceRenderKey} flexDirection="column">
+    <Box flexDirection="column">
       <Box flexDirection="column">
         {renderedSuggestions}
         

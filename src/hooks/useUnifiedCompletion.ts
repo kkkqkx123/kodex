@@ -320,7 +320,7 @@ export function useUnifiedCompletion({
     }
   }, [state.isActive, resetCompletion])
 
-  // Smart auto-triggering
+  // Smart auto-triggering - 优化版本，减少不必要的重渲染
   useEffect(() => {
     const handleAutoTrigger = async () => {
       if (lastInputRef.current === input) return
@@ -346,16 +346,29 @@ export function useUnifiedCompletion({
 
       const context = contextUtility.current.getWordAtCursor(input, cursorOffset)
 
+      // 只有在真正需要时才更新状态
       if (context && contextUtility.current.shouldAutoTrigger(context)) {
         const newSuggestions = generateSuggestions(context)
+        const currentContext = state.context
+        
+        // 检查是否真的需要更新建议
+        const shouldUpdate = 
+          !state.isActive ||
+          !currentContext ||
+          currentContext.type !== context.type ||
+          currentContext.startPos !== context.startPos ||
+          currentContext.prefix !== context.prefix ||
+          !arraysEqual(state.suggestions, newSuggestions)
 
-        if (newSuggestions.length === 0) {
-          resetCompletion()
-        } else if (newSuggestions.length === 1 &&
-          contextUtility.current.shouldAutoHideSingleMatch(newSuggestions[0], context, input)) {
-          resetCompletion()
-        } else {
-          await activateCompletion(newSuggestions, context)
+        if (shouldUpdate) {
+          if (newSuggestions.length === 0) {
+            resetCompletion()
+          } else if (newSuggestions.length === 1 &&
+            contextUtility.current.shouldAutoHideSingleMatch(newSuggestions[0], context, input)) {
+            resetCompletion()
+          } else {
+            await activateCompletion(newSuggestions, context)
+          }
         }
       } else if (state.context) {
         const contextChanged = !context ||
@@ -369,8 +382,17 @@ export function useUnifiedCompletion({
       }
     }
 
+    // 辅助函数：比较两个建议数组是否相同
+    function arraysEqual(a: UnifiedSuggestion[], b: UnifiedSuggestion[]): boolean {
+      if (a.length !== b.length) return false
+      for (let i = 0; i < a.length; i++) {
+        if (a[i].value !== b[i].value || a[i].type !== b[i].type) return false
+      }
+      return true
+    }
+
     handleAutoTrigger()
-  }, [input, cursorOffset, generateSuggestions, resetCompletion, activateCompletion])
+  }, [input, cursorOffset, generateSuggestions, resetCompletion, activateCompletion, state])
 
   return {
     suggestions,
