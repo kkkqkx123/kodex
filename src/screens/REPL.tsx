@@ -372,8 +372,17 @@ const messagesJSX = useMemo(() => <MessageContainer {...messageRendererProps} />
 
   return (
     <PermissionProvider isBypassPermissionsModeAvailable={!safeMode} children={undefined}>
-      <ModeIndicator />
-      <TaskStatusDisplay />
+      {/* 只在非紧凑模式下显示ModeIndicator */}
+      {process.env.KODE_COMPACT_MODE !== 'true' && <ModeIndicator />}
+      
+      {/* Task Status - 紧凑模式显示 */}
+      <TaskStatusDisplay 
+        compact={process.env.KODE_COMPACT_MODE === 'true'}
+        maxVisibleTasks={process.env.KODE_COMPACT_MODE === 'true' ? 1 : 3}
+        showApiInfo={process.env.KODE_COMPACT_MODE !== 'true'}
+        showTodos={process.env.KODE_COMPACT_MODE !== 'true'}
+      />
+      
       {messagesJSX}
       
       {/* 在任务执行时显示Spinner */}

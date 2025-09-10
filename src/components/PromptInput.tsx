@@ -574,12 +574,12 @@ function PromptInput({
 
   return (
     <Box flexDirection="column">
-      {/* Model info in top-right corner */}
+      {/* Model info in top-right corner - 简化的模型信息显示 */}
       {modelInfo && (
         <Box justifyContent="flex-end" marginBottom={1}>
           <Text dimColor>
-            [{modelInfo.provider}] {modelInfo.name}:{' '}
-            {Math.round(modelInfo.currentTokens / 1000)}k /{' '}
+            {modelInfo.name} ({modelInfo.provider})
+            {Math.round(modelInfo.currentTokens / 1000)}k/
             {Math.round(modelInfo.contextLength / 1000)}k
           </Text>
         </Box>

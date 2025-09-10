@@ -59,6 +59,24 @@ export function TaskStatusDisplay({
   const [showControls, setShowControls] = useState(false)
   const theme = getTheme()
   
+  // 如果没有活跃任务，不显示任何内容，避免UI堆叠
+  if (activeTasks.length === 0) {
+    return null
+  }
+
+  // 简化的任务状态显示
+  if (effectiveCompact) {
+    return (
+      <Box marginTop={1}>
+        <Text dimColor>
+          {activeTasks.map(task => 
+            `${task.agentType}: ${task.progress}%`
+          ).join(' | ')}
+        </Text>
+      </Box>
+    )
+  }
+
   // Notification manager
   const { notifications, addNotification, dismissNotification } = useNotificationManager()
   
