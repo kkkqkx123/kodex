@@ -1,0 +1,53 @@
+{
+  "prefixPermissions": [
+    {
+      "prefix": "git",
+      "allowed": true,
+      "description": "Allow git commands"
+    },
+    {
+      "prefix": "git commit",
+      "allowed": true,
+      "description": "Allow git commit only"
+    },
+    {
+      "prefix": "git push",
+      "allowed": false,
+      "description": "Block git push"
+    },
+    {
+      "prefix": "npm install",
+      "allowed": true,
+      "description": "Allow npm install"
+    },
+    {
+      "prefix": "npm run",
+      "allowed": true,
+      "description": "Allow npm run"
+    },
+    {
+      "prefix": "rm",
+      "allowed": false,
+      "description": "Allow rm only for temp files",
+      "allowedArgs": [
+        "*.tmp",
+        "*.log"
+      ]
+    },
+    {
+      "prefix": "delete",
+      "allowed": false,
+      "description": "Allow rm only for temp files",
+      "allowedArgs": [
+        "*.tmp",
+        "*.log"
+      ]
+    }
+  ],
+  "globallyAllowedCommands": [
+    "ls",
+    "pwd",
+    "echo",
+    "cat"
+  ]
+}

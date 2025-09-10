@@ -1,0 +1,184 @@
+1.agent日志显示问题
+
+2.自动补全后显示未移除上面的ui
+
+3.退出时清理ui
+
+4.search集成代码库索引+MCP集成代码库索引
+
+5.agent专属工具改通用
+thinking工具已改
+
+6.支持在配置文件中禁用agents模式
+
+7.工具调用报错默认改摘要，可以通过设置文件设置
+需要进一步分析
+[x]
+
+8.提示词改英文
+[x]
+
+9.进一步限制搜索结果？
+
+10.重构REPL
+[x]
+
+11.重构agents模块
+[x]
+
+12.实施agents模块重构（按照docs/plan/agents-refactor-implementation.md）
+[x]
+
+13.为ai添加工具：删除工具调用的返回信息，只保留ai思考过程。
+用于让ai自己删除无用的/过于冗长的返回信息
+
+14.新增监视器：
+估算每次工具调用的返回的tokens数，太大时直接取消返回并要求ai采用管道等方式过滤信息。允许用户定义阈值
+
+15.任务执行过程中异步处理用户输入
+
+16.新增覆盖文件工具。用于大范围重构时直接重写文件?似乎已完成？
+
+17.修改工具提示词？
+
+18.todo list显示问题
+todo
+
+19.隐藏思考(通过配置文件设置)
+[x]
+
+20.添加上下文累加模块，用于统计token消耗总量，并在执行/cost命令时输出
+[x]
+
+21.思考与工具先后
+[x]
+当前输出ai的响应时思考内容(由think标记)放在了工具调用的后面。
+请修改顺序，把思考内容放在前面，
+且支持通过配置文件(~/.kode/output_setting.json，同时支持全局级与项目级，项目级优先)来决定不输出think内容/输出头尾，中间省略/完全输出
+
+22.重构src\utils\config.ts，将配置信息按模块拆分，放在src\utils\config目录
+[x]
+
+24.允许模型列表查询失败
+
+25.智能补全时ui重复刷新
+模型输入等子界面ui重复刷新
+说明：当前在vscode的终端中只有最大化时是正常的，非最大化时依然会重复渲染。但该问题并不严重，可以忽略。
+[x]
+之前的问题已修复。我又发现：当终端不是最大化窗口时输入字符时，通过@ 与 /使用自动补全功能时该问题依然存在。
+在终端是最大化窗口时则不会出现该问题。
+
+修复该问题。
+此外，检查其他所有涉及ui刷新的界面(如/model命令进入的选择模型的子界面[太长，先跳过])是否需要作出相应的修改
+
+问题依然未解决，当终端不是最大化窗口时输入字符时，通过@ 与 /使用自动补全功能时该问题依然存在。该问题应该是由于显示补全意见时没有正确处理缓存、刷新等问题。
+
+另外，在终端是最大化窗口时则不会出现该问题。
+
+26.当前项目中输入功能出现问题：只有键盘输入能够被正确处理，粘贴/输入法输入都没有效果。请解决该问题
+[x]
+I've identified and fixed the input handling issue where only keyboard input was working but paste and IME input were not being processed correctly.
+
+The problem was in two areas:
+
+In src/hooks/useTextInput.ts, the input filtering logic was too restrictive. The condition on lines 254-256 was preventing paste and IME input from being processed as regular text input. I modified this to allow input as long as it's not a meta or ctrl key combination, which should properly handle paste and IME input while still filtering out special keys.
+
+In src/components/TextInput.tsx, the paste detection logic was too aggressive. It was intercepting input with more than 800 characters, which could include IME input. I adjusted this threshold to 2000 characters to better differentiate between actual paste operations and IME input.
+
+The changes I made:
+
+Modified the input filtering condition in useTextInput.ts to be less restrictive while still properly handling special keys
+Adjusted the paste detection threshold in TextInput.tsx to better differentiate between paste operations and IME input
+These changes should allow all three types of input to work correctly:
+
+Regular keyboard input
+Paste operations (both small and large text)
+IME input (including Chinese, Japanese, Korean, and other input methods)
+To test the fix:
+
+Try regular keyboard typing - should work as before
+Try pasting text of various lengths - should now work correctly
+Try using an IME (Input Method Editor) for Chinese, Japanese, or Korean text - should now work correctly
+The fix maintains backward compatibility with existing functionality while resolving the issue with paste and IME input.
+
+27.为该项目创建1个前端
+
+28.分析当前项目中permission模块支持怎样设置，如何设置ai可以使用的工具。给出一个自定义配置说明文档，放在docs\user-guide目录
+[x]
+
+29.检查当前项目的ui在任务执行时会给出什么提示。之前有显示会变换的图形的功能，重构后可能没有正确迁移
+[x]
+
+30.ui界面显示的上下文数的上限与设置模型时设置的不一致，全都为200k。此外，检查自动压缩是否是按照设置的上下文来执行
+src\components\TokenWarning.tsx中max tokens被写死
+[x]
+
+31.增加配置选项：当工具调用没有权限时可选：赋予权限选项【会话内赋予、全局赋予、单次赋予、拒绝、跳过(拒绝和跳过效果一样，但输出的信息不同)】、直接拒绝
+[-]
+
+32.为当前项目现有的交互式授权(目前只实现了逻辑层)新增机制：审批命令执行时基于前缀匹配，如'bun test 文件名'可以拆分为批准：
+bun; bun test; bun test 文件名
+[x]
+
+之后，将全局级授权改为项目级。取消交互式授权中全局级的授权
+
+此外，交互式授权的项目级所有内容必须写入.kode目录下单独的配置文件中。检查现有的逻辑并改为这个新逻辑(当前可能是掺杂在settings.json中)
+
+此外，检查当前项目是否支持通过全局/项目级配置文件，是否支持全局级配置、项目配置文件覆盖代码permission中的批准列表，并作出相应修改，保证配置文件优先级高于硬编码
+
+33.
+当前项目的bash命令授权没有正确发挥作用，例如ai通过bashTool执行del命令时没有被阻塞。请检查可能导致该问题的原因并修复。分析要尽可能全面。
+当前关于授权的文档见 @docs\review\permission\permission-mechanism.md 和 @docs\review\tool-permission-mechanism.md
+
+34.确保@文件能直接作为上下文输入，减少读取文件消耗的请求次数
+[x]
+
+
+36.
+修改当前命令的权限检查逻辑，允许通过全局/项目配置文件(~[或项目根目录]/.kode/bashPermissions.json)覆盖prompt.ts中硬编码的banned，
+同时新增对基于前缀匹配的bash命令授权的支持(见现有的前缀匹配授权)
+然后修改现有权限授权(现有的可能混淆了工具授权和命令授权)
+[x]
+
+37.
+✢ Moseying… (esc to interrupt · ctrl+t to show todos)【这里添加· ctrl+t to show todos提示即可】
+  ⎿  Next: Analyze current permission system architecture【当前处理中的todo】
+
+ctrl+r展开后（整体替换之前的该部分）：
+✶ Analyzing current permission system architecture… (esc to interrupt · ctrl+t to hide todos)
+  ⎿  ☐ Analyze current permission system architecture
+     ☐ Design new bash permission system
+     ☐ Implement config-based permission override
+     ☐ Add prefix-based command authorization
+     ☐ Separate tool and command authorization
+     ☐ Test new permission system
+
+其中最前方符号是当前已有的动画效果
+
+40.
+当前项目中的配置方案已经与.claude(claude code的配置)完全不同。
+请搜索并移除当前项目中所有支持通过.claude配置的地方，然后修改文档中的相应部分(搜索md后缀+含有.claude。CLAUDE.md和.claude目录本身不需要修改)
+[x]
+
+
+
+
+41.
+移除banned中禁止rm, delete的部分。.kode/bashPermissions.json中先保留为false，从而验证banned中没有拒绝的命令是否在执行时能自动触发交互式授权。
+此外，如何协调两个权限系统？请给出方案。此外，被拒绝的命令(除了硬编码为banned的)应当触发交互式授权的ui出现，让用户决定是否需要修改权限设置，而不是直接拒绝
+
+
+42.我检查上下文日志，发现导出的日志中没有区分用户输入与系统自动发送的错误提示、工具调用说明等。
+请检查提示词构建模块与日志模块，分析如何将用户输入信息与系统输入信息分离，分别同user、system表示。
+请给出修改方案，写入docs\plan目录
+
+43.
+执行任务时支持在输入框输入内容，异步处理提示词，命令则马上处理【不需要llm api请求的则不干扰任务执行】
+新增slash命令：undo
+包含子命令：
+/undo /lastreq i：回退至i个llm api request前的状态
+/undo /lasti：回退至上1个用户输入前的状态
+
+命令与子命令的逻辑参考todo与ignore命令
+
+44.输出响应、警告时重复渲染

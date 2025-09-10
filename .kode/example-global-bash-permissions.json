@@ -1,0 +1,20 @@
+{
+  "strictMode": false,
+  "globallyBannedCommands": [
+    "format",
+    "mkfs",
+    "fdisk"
+  ],
+  "prefixPermissions": [
+    {
+      "prefix": "curl",
+      "allowed": false,
+      "description": "Block network requests"
+    },
+    {
+      "prefix": "wget",
+      "allowed": false,
+      "description": "Block network downloads"
+    }
+  ]
+}

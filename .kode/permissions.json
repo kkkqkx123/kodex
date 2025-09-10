@@ -1,0 +1,28 @@
+{
+  "allowedTools": [
+    "BashTool",
+    "LsTool",
+    "GrepTool",
+    "GlobTool",
+    "TaskTool",
+    "FileEditTool",
+    "FileWriteTool",
+    "FileReadTool",
+    "MultiEditTool",
+    "TodoWriteTool",
+    "NotebookReadTool",
+    "NotebookWriteTool",
+    "mcp__context7",
+    "mcp__mcp-deepwiki",
+    "mcp__Playwright",
+    "ArchitectTool",
+    "AskExpertModelTool",
+    "ContextCompactTool",
+    "MemoryReadTool",
+    "MemoryWriteTool",
+    "MCPTool",
+    "ThinkTool",
+    "WebSearchTool",
+    "URLFetcherTool"
+  ]
+}

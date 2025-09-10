@@ -1,0 +1,763 @@
+================================================================================
+KODE CONTEXT EXPORT - 0905_2259_77be632b-947a-4b06-9c5e-4b9632ccc778.json
+================================================================================
+
+导出时间: 2025-09-05 14:59:40
+导出ID: 631bb895-8749-47b2-a824-1951bb483ee2
+
+会话消息:
+----------------------------------------
+1. [USER] 2025-09-05 14:54:38
+   @run-agent-codebase-search-specialist 搜索tools目录中的URLFetcherTool.tsx
+
+2. [ASSISTANT] 2025-09-05 14:54:38
+   [TOOL_USE] GlobTool
+[INPUT] {
+  "pattern": "**/URLFetcherTool*.tsx",
+  "root": "src/tools"
+}
+
+3. [USER] 2025-09-05 14:54:38
+   [TOOL_ERROR] InputValidationError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "root"
+    ],
+    "path": [],
+    "message": "Unrecognized key: \"root\""
+  }
+]
+
+4. [ASSISTANT] 2025-09-05 14:54:38
+   [TOOL_USE] GlobTool
+[INPUT] {
+  "pattern": "**/URLFetcherTool*.tsx"
+}
+
+5. [USER] 2025-09-05 14:54:38
+   [TOOL_RESULT] D:\ide\AI-CLI\Kode\src\tools\URLFetcherTool\URLFetcherTool.tsx
+
+6. [ASSISTANT] 2025-09-05 14:54:38
+   [TOOL_USE] View
+[INPUT] {
+  "file": "src/tools/URLFetcherTool/URLFetcherTool.tsx"
+}
+
+7. [USER] 2025-09-05 14:54:38
+   [TOOL_ERROR] InputValidationError: [
+  {
+    "code": "invalid_union",
+    "errors": [
+      [
+        {
+          "expected": "string",
+          "code": "invalid_type",
+          "path": [],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ],
+      [
+        {
+          "expected": "array",
+          "code": "invalid_type",
+          "path": [],
+          "message": "Invalid input: expected array, received undefined"
+        }
+      ]
+    ],
+    "path": [
+      "file_path"
+    ],
+    "message": "Invalid input"
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "file"
+    ],
+    "path": [],
+    "message": "Unrecognized key: \"file\""
+  }
+]
+
+8. [ASSISTANT] 2025-09-05 14:54:38
+   [TOOL_USE] View
+[INPUT] {
+  "file_path": "src/tools/URLFetcherTool/URLFetcherTool.tsx"
+}
+
+9. [USER] 2025-09-05 14:54:38
+   [TOOL_RESULT]      1	import { Box, Text } from 'ink'
+     2	import React from 'react'
+     3	import { z } from 'zod'
+     4	import fetch from 'node-fetch'
+     5	import { Cost } from '../../components/Cost'
+     6	import { FallbackToolUseRejectedMessage } from '../../components/FallbackToolUseRejectedMessage'
+     7	import { Tool, ToolUseContext } from '../../Tool'
+     8	import { DESCRIPTION, TOOL_NAME_FOR_PROMPT } from './prompt'
+     9	import { convertHtmlToMarkdown } from './htmlToMarkdown'
+    10	import { urlCache } from './cache'
+    11	import { queryQuick } from '../../services/claude'
+    12	
+    13	const inputSchema = z.strictObject({
+    14	  url: z.string().url().describe('The URL to fetch content from'),
+    15	  prompt: z.string().describe('The prompt to run on the fetched content'),
+    16	})
+    17	
+    18	type Input = z.infer<typeof inputSchema>
+    19	type Output = {
+    20	  url: string
+    21	  fromCache: boolean
+    22	  aiAnalysis: string
+    23	}
+    24	
+    25	function normalizeUrl(url: string): string {
+    26	  // Auto-upgrade HTTP to HTTPS
+    27	  if (url.startsWith('http://')) {
+    28	    return url.replace('http://', 'https://')
+    29	  }
+    30	  return url
+    31	}
+    32	
+    33	export const URLFetcherTool = {
+    34	  name: TOOL_NAME_FOR_PROMPT,
+    35	  async description() {
+    36	    return DESCRIPTION
+    37	  },
+    38	  userFacingName: () => 'URL Fetcher',
+    39	  inputSchema,
+    40	  isReadOnly: () => true,
+    41	  isConcurrencySafe: () => true,
+    42	  async isEnabled() {
+    43	    return true
+    44	  },
+    45	  needsPermissions() {
+    46	    return false
+    47	  },
+    48	  async prompt() {
+    49	    return DESCRIPTION
+    50	  },
+    51	  renderToolUseMessage({ url, prompt }: Input) {
+    52	    return `Fetching content from ${url} and analyzing with prompt: "${prompt}"`
+    53	  },
+    54	  renderToolUseRejectedMessage() {
+    55	    return <FallbackToolUseRejectedMessage />
+    56	  },
+    57	  renderToolResultMessage(output: Output) {
+    58	    const statusText = output.fromCache ? 'from cache' : 'fetched'
+    59	    
+    60	    return (
+    61	      <Box justifyContent="space-between" width="100%">
+    62	        <Box flexDirection="row">
+    63	          <Text>&nbsp;&nbsp;⎿ &nbsp;Content </Text>
+    64	          <Text bold>{statusText} </Text>
+    65	          <Text>and analyzed</Text>
+    66	        </Box>
+    67	        <Cost costUSD={0} durationMs={0} debug={false} />
+    68	      </Box>
+    69	    )
+    70	  },
+    71	  renderResultForAssistant(output: Output) {
+    72	    if (!output.aiAnalysis.trim()) {
+    73	      return `No content could be analyzed from URL: ${output.url}`
+    74	    }
+    75	    
+    76	    return output.aiAnalysis
+    77	  },
+    78	  async *call({ url, prompt }: Input, {}: ToolUseContext) {
+    79	    const normalizedUrl = normalizeUrl(url)
+    80	    
+    81	    try {
+    82	      let content: string
+    83	      let fromCache = false
+    84	
+    85	      // Check cache first
+    86	      const cachedContent = urlCache.get(normalizedUrl)
+    87	      if (cachedContent) {
+    88	        content = cachedContent
+    89	        fromCache = true
+    90	      } else {
+    91	        // Fetch from URL with AbortController for timeout
+    92	        const abortController = new AbortController()
+    93	        const timeout = setTimeout(() => abortController.abort(), 30000)
+    94	        
+    95	        const response = await fetch(normalizedUrl, {
+    96	          method: 'GET',
+    97	          headers: {
+    98	            'User-Agent': 'Mozilla/5.0 (compatible; URLFetcher/1.0)',
+    99	            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+   100	            'Accept-Language': 'en-US,en;q=0.5',
+   101	            'Accept-Encoding': 'gzip, deflate',
+   102	            'Connection': 'keep-alive',
+   103	            'Upgrade-Insecure-Requests': '1',
+   104	          },
+   105	          signal: abortController.signal,
+   106	          redirect: 'follow',
+   107	        })
+   108	        
+   109	        clearTimeout(timeout)
+   110	
+   111	        if (!response.ok) {
+   112	          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+   113	        }
+   114	
+   115	        const contentType = response.headers.get('content-type') || ''
+   116	        if (!contentType.includes('text/') && !contentType.includes('application/')) {
+   117	          throw new Error(`Unsupported content type: ${contentType}`)
+   118	        }
+   119	
+   120	        const html = await response.text()
+   121	        content = convertHtmlToMarkdown(html)
+   122	        
+   123	        // Cache the result
+   124	        urlCache.set(normalizedUrl, content)
+   125	        fromCache = false
+   126	      }
+   127	
+   128	      // Truncate content if too large (keep within reasonable token limits)
+   129	      const maxContentLength = 50000 // ~15k tokens approximately
+   130	      const truncatedContent = content.length > maxContentLength 
+   131	        ? content.substring(0, maxContentLength) + '\n\n[Content truncated due to length]'
+   132	        : content
+   133	
+   134	      // AI Analysis - always performed fresh, even with cached content
+   135	      const systemPrompt = [
+   136	        'You are analyzing web content based on a user\'s specific request.',
+   137	        'The content has been extracted from a webpage and converted to markdown.',
+   138	        'Provide a focused response that directly addresses the user\'s prompt.',
+   139	      ]
+   140	
+   141	      const userPrompt = `Here is the content from ${normalizedUrl}:
+   142	
+   143	${truncatedContent}
+   144	
+   145	User request: ${prompt}`
+   146	
+   147	      const aiResponse = await queryQuick({
+   148	        systemPrompt,
+   149	        userPrompt,
+   150	        enablePromptCaching: false,
+   151	      })
+   152	
+   153	      const output: Output = {
+   154	        url: normalizedUrl,
+   155	        fromCache,
+   156	        aiAnalysis: aiResponse.message.content.find(block => block.type === 'text')?.text || 'Unable to analyze content',
+   157	      }
+   158	
+   159	      yield {
+   160	        type: 'result' as const,
+   161	        resultForAssistant: this.renderResultForAssistant(output),
+   162	        data: output,
+   163	      }
+   164	    } catch (error: any) {
+   165	      const output: Output = {
+   166	        url: normalizedUrl,
+   167	        fromCache: false,
+   168	        aiAnalysis: '',
+   169	      }
+   170	      
+   171	      yield {
+   172	        type: 'result' as const,
+   173	        resultForAssistant: `Error processing URL ${normalizedUrl}: ${error.message}`,
+   174	        data: output,
+   175	      }
+   176	    }
+   177	  },
+   178	} satisfies Tool<typeof inputSchema, Output>
+
+10. [ASSISTANT] 2025-09-05 14:54:38
+   找到了文件 `src/tools/URLFetcherTool/URLFetcherTool.tsx`，这是一个用于从指定URL获取内容并进行AI分析的工具。该工具具有以下功能：
+
+- 从URL获取内容并转换为Markdown格式
+- 支持缓存机制，避免重复请求相同URL
+- 自动将HTTP链接升级为HTTPS
+- 对获取的内容进行AI分析
+- 支持设置超时（30秒）和自定义请求头
+- 内容过长时自动截断
+
+该工具实现为一个React组件，包含用户界面显示和结果渲染功能。
+
+11. [USER] 
+   <command-name>ctx-viz</command-name>
+        <command-message>ctx-viz</command-message>
+        <command-args></command-args>
+
+12. [ASSISTANT] 
+   <local-command-stdout>┌──────────────────────────────┬────────────┬────────────┬──────────┐
+│Component                     │Tokens      │Size        │% Used    │
+├──────────────────────────────┼────────────┼────────────┼──────────┤
+│System prompt                 │15.3k       │59.8kb      │69%       │
+│  Core Sysprompt              │2.9k        │11.5kb      │13%       │
+│  directoryStructure          │2.1k        │8.3kb       │9%        │
+│  gitStatus                   │0.1k        │0.5kb       │1%        │
+│  CodeStyle + AGENTS.md's     │1.9k        │7.4kb       │8%        │
+│  claudeFiles                 │0.1k        │0.3kb       │0%        │
+│  readme                      │4.4k        │17.2kb      │20%       │
+│  projectDocs                 │3.7k        │14.4kb      │17%       │
+│Tool definitions              │0.5k        │2kb         │2%        │
+│  Task                        │0k          │0.1kb       │0%        │
+│  AskExpertModel              │0k          │0.1kb       │0%        │
+│  Bash                        │0k          │0.1kb       │0%        │
+│  GlobTool                    │0k          │0.1kb       │0%        │
+│  GrepTool                    │0k          │0.1kb       │0%        │
+│  LS                          │0k          │0.1kb       │0%        │
+│  View                        │0k          │0.1kb       │0%        │
+│  Edit                        │0k          │0.1kb       │0%        │
+│  MultiEdit                   │0k          │0.1kb       │0%        │
+│  Replace                     │0k          │0.1kb       │0%        │
+│  ReadNotebook                │0k          │0.1kb       │0%        │
+│  NotebookEditCell            │0k          │0.1kb       │0%        │
+│  TodoWrite                   │0k          │0.1kb       │0%        │
+│  ContextCompact              │0k          │0.1kb       │0%        │
+│Messages                      │6.5k        │25.5kb      │29%       │
+├──────────────────────────────┼────────────┼────────────┼──────────┤
+│Total                         │22.3k       │87.3kb      │100%      │
+└──────────────────────────────┴────────────┴────────────┴──────────┘
+
+Real Token Usage: 18,847 tokens (9% of context limit)</local-command-stdout>
+
+上下文信息:
+----------------------------------------
+目录结构:
+Below is a snapshot of this project's file structure at the start of the conversation. This snapshot will NOT update during the conversation.
+
+- D:\ide\AI-CLI\Kode\
+  - .claude\
+    - agents\
+      - a-agent-like-linus-keep-it-sim.md
+      - dao-qi-harmony-designer.md
+      - simplicity-auditor.md
+      - test-agent.md
+      - test-writer.md
+  - .dockerignore
+  - .github\
+    - ISSUE_TEMPLATE\
+      - bug_report.md
+    - workflows\
+      - npm-publish.yml
+      - release.yml
+      - version-bump.yml
+  - .gitignore
+  - .kode\
+    - agents\
+      - code-writer.md
+      - codebase-search-specialist.md
+      - coder.md
+      - dao-qi-harmony-designer.md
+      - docs-specialist.md
+      - docs-writer.md
+      - planner.md
+      - search-specialist.md
+      - test-specialist.md
+      - test-writer.md
+      - ui-ux-designer.md
+    - commands\
+      - compact.example.json
+      - name.example.json
+    - context_export\
+      - 0905_1408_b32e199d-a8c5-4244-b689-06e956b18402.json
+      - 0905_2257_a498a730-0040-4a0b-a533-053d010b2b32.json
+  - .kodeignore
+  - .npmignore
+  - .prettierignore
+  - .prettierrc
+  - .trae\
+    - rules\
+      - project_rules.md
+  - AGENTS.md
+  - CLAUDE.md
+  - CONTRIBUTING.md
+  - DEPLOYMENT_GUIDE.md
+  - Dockerfile
+  - LICENSE
+  - README.md
+  - README.zh-CN.md
+  - deprecated\
+    - .kode\
+      - agents\
+  - docs\
+    - ELEGANT_TAB_IMPROVEMENT_PLAN.md
+    - PROJECT_STRUCTURE.md
+    - PUBLISH.md
+    - TAB_BEHAVIOR_DEMO.md
+    - TERMINAL_BEHAVIOR_ANALYSIS.md
+    - TERMINAL_TAB_TEST.md
+    - TERMINAL_VS_CURRENT.md
+    - agents-system.md
+    - custom-commands.md
+    - develop-zh\
+      - README.md
+      - architecture.md
+      - configuration.md
+      - modules\
+      - overview.md
+      - security-model.md
+      - tools-system.md
+    - develop\
+      - README.md
+      - architecture.md
+      - configuration.md
+      - modules\
+      - overview.md
+      - security-model.md
+      - tools-system.md
+    - intelligent-completion.md
+    - mention-system.md
+    - system-design.md
+  - main.js
+  - package.json
+  - prompt\
+    - generate_command.md
+    - ignore_rule_update.md
+  - scripts\
+    - build.ts
+    - postinstall.js
+    - prepublish-check.js
+    - publish-workaround.js
+  - src\
+    - ProjectOnboarding.tsx
+    - Tool.ts
+    - checkpoint\
+      - db\
+      - types\
+    - commands.ts
+    - commands\
+      - agents.tsx
+      - approvedTools.ts
+      - bug.tsx
+      - clear.ts
+      - compact.ts
+      - config-cmd.ts
+      - config.tsx
+      - context.ts
+      - cost.ts
+      - ctx_viz.ts
+      - doctor.ts
+      - exit.ts
+      - help.tsx
+      - ignore.ts
+      - ignore\
+      - init.ts
+      - kiro-spec\
+      - lasti.ts
+      - lastreq.ts
+      - listen.ts
+      - login.tsx
+      - logout.tsx
+      - mcp.ts
+      - model.tsx
+      - modelstatus.tsx
+      - onboarding.tsx
+      - pr_comments.ts
+      - prompt\
+      - quit.ts
+      - refreshCommands.ts
+      - release-notes.ts
+      - resume.tsx
+      - review.ts
+      - terminalSetup.ts
+      - todo.ts
+      - todo\
+      - undo.ts
+    - components\
+      - ApproveApiKey.tsx
+      - AsciiLogo.tsx
+      - AutoUpdater.tsx
+      - Bug.tsx
+      - Config.tsx
+      - ConsoleOAuthFlow.tsx
+      - Cost.tsx
+      - CostThresholdDialog.tsx
+      - CustomSelect\
+      - FallbackToolUseRejectedMessage.tsx
+      - FileEditToolUpdatedMessage.tsx
+      - Help.tsx
+      - HighlightedCode.tsx
+      - InvalidConfigDialog.tsx
+      - Link.tsx
+      - LogSelector.tsx
+      - Logo.tsx
+      - MCPServerApprovalDialog.tsx
+      - MCPServerDialogCopy.tsx
+      - MCPServerMultiselectDialog.tsx
+      - Message.tsx
+      - MessageResponse.tsx
+      - MessageSelector.tsx
+      - ModeIndicator.tsx
+      - ModelConfig.tsx
+      - ModelListManager.tsx
+      - ModelSelector.tsx
+      - ModelStatusDisplay.tsx
+      - Onboarding.tsx
+      - PressEnterToContinue.tsx
+      - PromptInput.tsx
+      - SentryErrorBoundary.ts
+      - Spinner.tsx
+      - StickerRequestForm.tsx
+      - StructuredDiff.tsx
+      - TextInput.tsx
+      - TodoItem.tsx
+      - TokenWarning.tsx
+      - ToolUseLoader.tsx
+      - TrustDialog.tsx
+      - binary-feedback\
+      - messages\
+      - permissions\
+    - constants\
+      - betas.ts
+      - claude-asterisk-ascii-art.tsx
+      - figures.ts
+      - keys.ts
+      - macros.ts
+      - modelCapabilities.ts
+      - models.ts
+      - oauth.ts
+      - product.ts
+      - prompts.ts
+      - releaseNotes.ts
+    - context.ts
+    - context\
+      - PermissionContext.tsx
+    - cost-tracker.ts
+    - entrypoints\
+      - cli.tsx
+      - cli\
+      - mcp.ts
+    - history.ts
+    - hooks\
+      - completion\
+      - useApiKeyVerification.ts
+      - useArrowKeyHistory.ts
+      - useCanUseTool.ts
+      - useCancelRequest.ts
+      - useDoublePress.ts
+      - useExitOnCtrlCD.ts
+      - useInterval.ts
+      - useLogMessages.ts
+      - useLogStartupTime.ts
+      - useNotifyAfterTimeout.ts
+      - usePermissionRequestLogging.ts
+      - useSubcommandCompletion.ts
+      - useSubcommandRegistry.ts
+      - useTerminalSize.ts
+      - useTextInput.ts
+      - useUnifiedCompletion.ts
+    - messages.ts
+    - monitor\
+      - CycleDetector.ts
+      - ToolCallFailureMonitor.ts
+      - ToolCallHistory.ts
+      - ToolCallMonitor.ts
+      - config.ts
+      - errors.ts
+      - failureTypes.ts
+      - index.ts
+      - types.ts
+    - permissions.ts
+    - query.ts
+    - screens\
+      - ConfigureNpmPrefix.tsx
+      - Doctor.tsx
+      - LogList.tsx
+      - REPL.tsx
+      - ResumeConversation.tsx
+    - services\
+      - adapters\
+      - browserMocks.ts
+      - claude.ts
+      - customCommands.ts
+      - fileFreshness.ts
+      - gpt5ConnectionTest.ts
+      - mcpClient.ts
+      - mcpServerApproval.tsx
+      - mentionProcessor.ts
+      - modelAdapterFactory.ts
+      - notifier.ts
+      - oauth.ts
+      - openai.ts
+      - responseStateManager.ts
+      - sentry.ts
+      - statsig.ts
+      - statsigStorage.ts
+      - systemReminder.ts
+      - todoService.ts
+      - vcr.ts
+    - test\
+      - grep-test\
+      - ripgrep-test.ts
+      - testAdapters.ts
+    - tools.ts
+    - tools\
+      - ArchitectTool\
+      - AskExpertModelTool\
+      - BashTool\
+      - ContextCompactTool\
+      - FileEditTool\
+      - FileReadTool\
+      - FileWriteTool\
+      - GlobTool\
+      - GrepTool\
+      - MCPTool\
+      - MemoryReadTool\
+      - MemoryWriteTool\
+      - MultiEditTool\
+      - NotebookEditTool\
+      - NotebookReadTool\
+      - StickerRequestTool\
+      - TaskTool\
+      - ThinkTool\
+      - TodoWriteTool\
+      - URLFetcherTool\
+      - WebSearchTool\
+      - lsTool\
+    - types\
+      - PermissionMode.ts
+      - RequestContext.ts
+      - conversation.ts
+      - logs.ts
+      - modelCapabilities.ts
+      - notebook.ts
+      - todo.ts
+    - utils\
+      - Cursor.ts
+      - PersistentShell.ts
+      - advancedFuzzyMatcher.ts
+      - agentLoader.ts
+      - agentStorage.ts
+      - array.ts
+      - ask.tsx
+      - auth.ts
+      - autoCompactCore.ts
+      - autoUpdater.ts
+      - betas.ts
+      - browser.ts
+      - cleanup.ts
+      - commandConfig.ts
+      - commands.ts
+      - commonUnixCommands.ts
+      - config.ts
+      - configLoader.ts
+      - configTemplate.ts
+      - contextStatistics.ts
+      - conversationRecovery.ts
+      - debugLogger.ts
+      - detectGrepTool.ts
+      - diff.ts
+      - directoryTraverser.ts
+      - env.ts
+      - errors.ts
+      - exampleCommands.ts
+      - execFileNoThrow.ts
+      - expertChatStorage.ts
+      - fetchPolyfill.ts
+      - file.ts
+      - fileRecoveryCore.ts
+      - format.tsx
+      - fuzzyMatcher.ts
+      - generators.ts
+      - git.ts
+      - globalLogger.ts
+      - http.ts
+      - ignoreParser.ts
+      - imagePaste.ts
+      - json.ts
+      - linuxGrep.ts
+      - log.ts
+      - markdown.ts
+      - messageContextManager.ts
+      - messages.tsx
+      - model.ts
+      - permissions\
+      - responseState.ts
+      - ripgrep.ts
+      - secureFile.ts
+      - sessionState.ts
+      - state.ts
+      - style.ts
+      - subcommandRegistry.ts
+      - terminal.ts
+      - theme.ts
+      - thinking.ts
+      - todoStorage.ts
+      - tokens.ts
+      - toolExecutionController.ts
+      - unaryLogging.ts
+      - user.ts
+      - validate.ts
+      - windowsGrep.ts
+  - test\
+    - customCommands.test.ts
+    - monitor\
+      - ToolCallHistory.test.ts
+      - ToolCallMonitor.test.ts
+      - __test__\
+    - secureFile.test.ts
+    - tools\
+      - ContextCompactTool.test.ts
+  - tsconfig.json
+  - yoga.wasm
+
+
+Git状态:
+This is the git status at the start of the conversation. Note that this status is a snapshot in time, and will not update during the conversation.
+Current branch: kkkqkx123-edit
+
+Main branch (you will usually use this for PRs): main
+
+Status:
+?? .kode/context_export/0905_2257_a498a730-0040-4a0b-a533-053d010b2b32.json
+
+Recent commits:
+454af20 temp
+6236a17 first commit
+53234ba Merge pull request #67 from xiaomao87/fix-dockerfile
+20111a0 Update README.zh-CN.md
+f857fb9 Update README.md
+
+Your recent commits:
+454af20 temp
+6236a17 first commit
+
+代码风格:
+The codebase follows strict style guidelines shown below. All code changes must strictly adhere to these guidelines to maintain consistency and quality.
+
+Contents of D:\ide\AI-CLI\Kode\AGENTS.md:
+
+# AGENTS.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Development Commands
+
+### Essential Development Workflow
+```bash
+# Install dependencies
+bun install
+
+# Run in development mode (hot reload with verbose output)
+bun run dev
+
+# Build the CLI wrapper for distribution
+bun run build
+
+# Clean build artifacts
+bun run clean
+
+# Run tests
+bun test
+
+# Check types
+bun run typecheck
+
+# Format code
+bun run format
+bun run format:check
+```
+
+### Build System Details
+- **Primary Build Tool**: Bun (required for development)
+- **Distribution**: Smart CLI wrapper (`cli.js`) that prefers Bun but falls back to Node.js with tsx loader
+- **Entry Point**: `src/entrypoints/cli.tsx`
+- **Build Output**: `cli.js` (execu... (内容过长已截断)

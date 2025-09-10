@@ -1,0 +1,46 @@
+{
+  "overrideBannedCommands": [
+    "del",
+    "rm",
+    "format",
+    "shred"
+  ],
+  "prefixPermissions": [
+    {
+      "prefix": "git commit",
+      "allowed": true,
+      "description": "Allow git commit operations"
+    },
+    {
+      "prefix": "npm install",
+      "allowed": true,
+      "description": "Allow npm install commands"
+    },
+    {
+      "prefix": "bun run",
+      "allowed": true,
+      "description": "Allow bun run commands"
+    },
+    {
+      "prefix": "rm -rf",
+      "allowed": false,
+      "description": "Block recursive delete operations"
+    },
+    {
+      "prefix": "del ",
+      "allowed": false,
+      "description": "Block del commands"
+    }
+  ],
+  "globallyAllowedCommands": [
+    "git",
+    "npm",
+    "node",
+    "bun",
+    "ls",
+    "pwd",
+    "cat",
+    "echo"
+  ],
+  "strictMode": true
+}
