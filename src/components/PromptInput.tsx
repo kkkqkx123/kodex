@@ -27,6 +27,7 @@ import terminalSetup, {
   handleHashCommand,
 } from '../commands/terminalSetup'
 import { usePermissionContext } from '../context/PermissionContext'
+import { CompletionSuggestions } from './CompletionSuggestions'
 
 // Async function to interpret the '#' command input using AI
 async function interpretHashCommand(input: string): Promise<string> {
@@ -188,41 +189,7 @@ function PromptInput({
   // Get theme early for memoized rendering
   const theme = getTheme()
 
-  // Memoized completion suggestions rendering - after useUnifiedCompletion
-  // Limit suggestions based on terminal rows to prevent overflow and re-rendering issues
-  const renderedSuggestions = useMemo(() => {
-    if (suggestions.length === 0) return null
-
-    // Limit suggestions to fit within terminal visible area with boundary checking
-    // Account for window decorations and non-maximized window scenarios
-    const availableRows = Math.max(1, rows - 4) // Reserve space for input and other UI elements
-    const maxVisibleSuggestions = Math.min(availableRows, suggestions.length)
-    const limitedSuggestions = suggestions.slice(0, maxVisibleSuggestions)
-
-    return limitedSuggestions.map((suggestion, index) => {
-      const isSelected = index === selectedIndex
-      const isAgent = suggestion.type === 'agent'
-
-      // Simple color logic without complex lookups
-      const displayColor = isSelected
-        ? theme.suggestion
-        : (isAgent && suggestion.metadata?.color)
-          ? suggestion.metadata.color
-          : undefined
-
-      return (
-        <Box key={`${suggestion.type}-${suggestion.value}-${index}`} flexDirection="row">
-          <Text
-            color={displayColor}
-            dimColor={!isSelected && !displayColor}
-          >
-            {isSelected ? '◆ ' : '  '}
-            {suggestion.displayValue}
-          </Text>
-        </Box>
-      )
-    })
-  }, [suggestions, selectedIndex, theme, rows])
+  // 移除旧的renderedSuggestions，现在由独立的CompletionSuggestions组件处理
 
   const onChange = useCallback(
     (value: string) => {
@@ -740,59 +707,13 @@ function PromptInput({
           } />
         </Box>
       )}
-      {/* Unified completion suggestions - optimized rendering with terminal size awareness */}
-      {suggestions.length > 0 && (
-        <Box
-          flexDirection="row"
-          justifyContent="space-between"
-          paddingX={2}
-          paddingY={0}
-        >
-          <Box flexDirection="column">
-            {renderedSuggestions}
-
-            {/* Show overflow indicator if suggestions are truncated */}
-            {suggestions.length > Math.max(1, rows - 4) && (
-              <Box marginTop={0}>
-                <Text dimColor>
-                  ... and {suggestions.length - Math.max(1, rows - 4)} more suggestions
-                </Text>
-              </Box>
-            )}
-
-            {/* 简洁操作提示框 */}
-            <Box marginTop={1} paddingX={3} borderStyle="round" borderColor="gray">
-              <Text dimColor={!emptyDirMessage} color={emptyDirMessage ? "yellow" : undefined}>
-                {emptyDirMessage || (() => {
-                  const selected = suggestions[selectedIndex]
-                  if (!selected) {
-                    return '↑↓ navigate • → accept • Tab cycle • Esc close'
-                  }
-                  if (selected?.value.endsWith('/')) {
-                    return '→ enter directory • ↑↓ navigate • Tab cycle • Esc close'
-                  } else if (selected?.type === 'agent') {
-                    return '→ select agent • ↑↓ navigate • Tab cycle • Esc close'
-                  } else {
-                    return '→ insert reference • ↑↓ navigate • Tab cycle • Esc close'
-                  }
-                })()}
-              </Text>
-            </Box>
-          </Box>
-          <SentryErrorBoundary children={
-            <Box justifyContent="flex-end" gap={1}>
-              <TokenWarning tokenUsage={contextStats.totalTokens} contextLimit={contextStats.contextLimit} />
-              <AutoUpdater
-                debug={debug}
-                onAutoUpdaterResult={onAutoUpdaterResult}
-                autoUpdaterResult={autoUpdaterResult}
-                isUpdating={isAutoUpdating}
-                onChangeIsUpdating={setIsAutoUpdating}
-              />
-            </Box>
-          } />
-        </Box>
-      )}
+      {/* 独立的补全建议组件，避免整个UI重新渲染 */}
+      <CompletionSuggestions
+        suggestions={suggestions}
+        selectedIndex={selectedIndex}
+        emptyDirMessage={emptyDirMessage}
+        input={input} // 传递输入作为key的一部分，确保输入变化时完全重新渲染
+      />
     </Box>
   )
 }

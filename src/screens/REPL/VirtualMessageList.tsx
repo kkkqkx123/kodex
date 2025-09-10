@@ -1,67 +1,111 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react'
+import React, { useMemo, useEffect } from 'react'
 import { Box, Text } from 'ink'
 import { MessageRenderer } from './MessageRenderer'
 import { useTerminalSize } from '../../hooks/useTerminalSize'
-import type { MessageRendererProps } from '../REPL.types'
-import type { NormalizedMessage } from '../../utils/messages'
+import { StaticElementManager } from './StaticElementManager'
+import type { MessageContainerProps } from './REPL.types'
 
-interface VirtualMessageListProps extends Omit<MessageRendererProps, 'messages'> {
-  messages: NormalizedMessage[]
-  maxVisibleMessages?: number
+interface VirtualMessageListProps extends MessageContainerProps {
+  disableStaticCaching?: boolean
 }
 
 export const VirtualMessageList: React.FC<VirtualMessageListProps> = ({
   messages,
-  maxVisibleMessages = 50,
-  ...otherProps
+  tools,
+  verbose,
+  debug,
+  forkNumber,
+  mcpClients,
+  isDefaultModel,
+  erroredToolUseIDs,
+  inProgressToolUseIDs,
+  unresolvedToolUseIDs,
+  toolJSX,
+  toolUseConfirm,
+  isMessageSelectorVisible,
+  disableStaticCaching = false,
 }) => {
-  const { rows } = useTerminalSize()
-  const [startIndex, setStartIndex] = useState(0)
-  const containerRef = useRef<any>(null)
-
+  const { height: terminalHeight } = useTerminalSize()
+  
   // 计算可见消息数量
-  const visibleCount = useMemo(() => {
-    const messageHeight = 3 // 每条消息的估计高度
-    const availableRows = Math.max(10, rows - 10) // 保留空间给输入和其他UI
-    return Math.min(maxVisibleMessages, Math.floor(availableRows / messageHeight))
-  }, [rows, maxVisibleMessages])
-
-  // 计算可见消息范围
-  const visibleMessages = useMemo(() => {
-    if (messages.length <= visibleCount) {
-      return messages
+  const { visibleMessages, visibleRange } = useMemo(() => {
+    if (messages.length === 0) {
+      return { visibleMessages: [], visibleRange: { start: 0, end: 0 } }
     }
+
+    // 每条消息大约占用3行高度，加上一些缓冲
+    const messageHeight = 3
+    const maxVisibleMessages = Math.max(1, Math.floor(terminalHeight / messageHeight))
     
     // 始终显示最新的消息
-    const endIndex = messages.length
-    const start = Math.max(0, endIndex - visibleCount)
+    const start = Math.max(0, messages.length - maxVisibleMessages)
+    const end = messages.length
     
-    return messages.slice(start, endIndex)
-  }, [messages, visibleCount])
+    const visibleMessages = messages.slice(start, end)
+    
+    return {
+      visibleMessages,
+      visibleRange: { start, end }
+    }
+  }, [messages, terminalHeight])
 
-  // 显示消息数量指示器
-  const MessageCountIndicator = useMemo(() => {
-    if (messages.length <= visibleCount) return null
-    
-    const hiddenCount = messages.length - visibleCount
-    return (
-      <Box marginTop={1} marginBottom={1}>
-        <Box>
-          <Text color="gray" dimColor>
-            显示 {visibleMessages.length} / {messages.length} 条消息 
-            ({hiddenCount} 条旧消息已隐藏)
-          </Text>
-        </Box>
-      </Box>
-    )
-  }, [messages.length, visibleCount, visibleMessages.length])
+  // 监听任务状态变化
+  useEffect(() => {
+    const hasActiveProcess = inProgressToolUseIDs.size > 0 || toolJSX || toolUseConfirm
+    StaticElementManager.getInstance().setTaskStatus(hasActiveProcess)
+  }, [inProgressToolUseIDs.size, toolJSX, toolUseConfirm])
+
+  // 渲染可见消息
+  const rendererProps = useMemo(() => ({
+    messages: visibleMessages,
+    tools,
+    verbose,
+    debug,
+    forkNumber,
+    mcpClients,
+    isDefaultModel,
+    erroredToolUseIDs,
+    inProgressToolUseIDs,
+    unresolvedToolUseIDs,
+    toolJSX,
+    toolUseConfirm,
+    isMessageSelectorVisible,
+  }), [
+    visibleMessages,
+    tools,
+    verbose,
+    debug,
+    forkNumber,
+    mcpClients,
+    isDefaultModel,
+    erroredToolUseIDs,
+    inProgressToolUseIDs,
+    unresolvedToolUseIDs,
+    toolJSX,
+    toolUseConfirm,
+    isMessageSelectorVisible,
+  ])
+
+  if (visibleMessages.length === 0) {
+    return <Box height={0} />
+  }
 
   return (
     <Box flexDirection="column" width="100%">
-      {MessageCountIndicator}
-      <MessageRenderer
-        {...otherProps}
-        messages={visibleMessages}
+      {/* 消息数量指示器 */}
+      {messages.length > visibleMessages.length && (
+        <Box marginBottom={1}>
+          <Text dimColor>
+            显示 {visibleMessages.length}/{messages.length} 条消息
+          </Text>
+        </Box>
+      )}
+      
+      {/* 渲染可见消息 */}
+      <MessageRenderer 
+        {...rendererProps}
+        // 任务执行期间禁用static元素缓存
+        disableStaticCaching={disableStaticCaching}
       />
     </Box>
   )

@@ -37,6 +37,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "test": "bun test",
+    "test:cleanup": "node test-cleanup-simple.js",
     "typecheck": "tsc --noEmit"
   },
   "optionalDependencies": {

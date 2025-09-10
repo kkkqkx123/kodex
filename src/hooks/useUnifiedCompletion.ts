@@ -248,14 +248,10 @@ export function useUnifiedCompletion({
   }, [setState])
 
   const activateCompletion = useCallback(async (suggestions: UnifiedSuggestion[], context: CompletionContext) => {
-    // Only clear terminal if completion is not already active (to prevent black screen during refresh)
-    if (!state.isActive) {
-      const { clearTerminal } = await import('../utils/terminal')
-      await clearTerminal()
-    }
-    
+    // Skip terminal clearing for command completion to prevent input box disappearance
+    // The Ink Static component will handle UI updates without full terminal refresh
     stateUtility.current.activateCompletion(setState, suggestions, context)
-  }, [setState, state.isActive])
+  }, [setState])
 
   // Handle Tab key
   useInput((input_str, key) => {

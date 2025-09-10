@@ -26,7 +26,7 @@ import {
   setMessagesSetter,
   setModelConfigChangeHandler,
 } from '../messages'
-import { clearTerminal } from '../utils/terminal'
+import { clearTerminal, completeTerminalCleanup } from '../utils/terminal'
 import { normalizeMessages, isNotEmptyMessage, normalizeMessagesForAPI, getUnresolvedToolUseIDs, getInProgressToolUseIDs, getErroredToolUseMessages } from '../utils/messages'
 import { getGlobalConfig } from '../utils/config'
 import { getOriginalCwd } from '../utils/state'
@@ -436,13 +436,16 @@ const messagesJSX = useMemo(() => <MessageContainer {...messageRendererProps} />
             // Cancel tool use calls/requests
             onCancel()
 
-            // Hack: make sure the "Interrupted by user" message is
-            // rendered in response to the cancellation. Otherwise,
-            // the screen will be cleared but there will remain a
-            // vestigial "Interrupted by user" message at the top.
+            // 使用更强的清理机制处理多页内容
             setImmediate(async () => {
-              // Clear messages, and re-render
+              // 先进行深度清理，确保旧UI完全清除
+              const { ultraTerminalCleanup } = await import('../utils/terminal')
+              await ultraTerminalCleanup()
+              
+              // 然后使用标准清理
               await clearTerminal()
+              
+              // 重置消息状态
               stateManager.setMessages([])
               stateManager.setForkConvoWithMessagesOnTheNextRender(
                 state.messages.slice(0, state.messages.indexOf(message)),
@@ -462,4 +465,28 @@ const messagesJSX = useMemo(() => <MessageContainer {...messageRendererProps} />
       <Newline />
     </PermissionProvider>
   )
+
+  // 添加清理钩子
+  useEffect(() => {
+    // 添加全局清理方法
+    const cleanup = () => {
+      completeTerminalCleanup().catch(console.error)
+    }
+
+    // 将清理方法暴露给全局对象
+    if (typeof window !== 'undefined') {
+      (window as any).cleanupTerminal = cleanup
+    } else {
+      (global as any).cleanupTerminal = cleanup
+    }
+
+    return () => {
+      // 清理时移除全局方法
+      if (typeof window !== 'undefined') {
+        delete (window as any).cleanupTerminal
+      } else {
+        delete (global as any).cleanupTerminal
+      }
+    }
+  }, [])
 }

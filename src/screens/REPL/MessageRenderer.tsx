@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useEffect } from 'react'
 import { Box } from 'ink'
 import { Logo } from '../../components/Logo'
 import ProjectOnboarding from '../../ProjectOnboarding'
@@ -8,6 +8,7 @@ import { type MessageRendererProps } from '../REPL.types'
 import type { NormalizedMessage } from '../../utils/messages'
 import { getToolUseID, INTERRUPT_MESSAGE, reorderMessages } from '../../utils/messages'
 import { getOriginalCwd } from '../../utils/state'
+import { StaticElementManager } from './StaticElementManager'
 
 export const MessageRenderer: React.FC<MessageRendererProps> = ({
   messages,
@@ -24,6 +25,12 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   toolUseConfirm,
   isMessageSelectorVisible,
 }) => {
+  // 监听任务状态变化
+  useEffect(() => {
+    const hasActiveProcess = inProgressToolUseIDs.size > 0 || toolJSX || toolUseConfirm
+    StaticElementManager.getInstance().setTaskStatus(hasActiveProcess)
+  }, [inProgressToolUseIDs.size, toolJSX, toolUseConfirm])
+
   const logoAndOnboarding = useMemo(() => (
     <Box flexDirection="column" key="logo-and-onboarding">
       <Logo mcpClients={mcpClients} isDefaultModel={isDefaultModel} />
@@ -31,12 +38,35 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
     </Box>
   ), [mcpClients, isDefaultModel]);
 
+  // 缓存static元素，避免任务执行期间重新计算
+  const cachedStaticElements = useMemo(() => {
+    return {
+      logo: logoAndOnboarding,
+      staticMessages: new Map<string, React.ReactNode>()
+    }
+  }, [logoAndOnboarding])
+
   const messagesJSX = useMemo(() => {
     const reorderedMessages = reorderMessages(messages);
+    
+    // 如果没有消息，返回空数组避免Static组件残留
+    if (messages.length === 0) {
+      return [
+        {
+          type: 'transient',
+          jsx: <Box key="empty" height={0} />,
+          key: 'empty',
+        }
+      ]
+    }
+    
+    // 任务执行期间，所有元素都使用transient模式避免刷新
+    const isTaskInProgress = inProgressToolUseIDs.size > 0 || toolJSX || toolUseConfirm
+    
     return [
       {
-        type: 'static',
-        jsx: logoAndOnboarding,
+        type: isTaskInProgress ? 'transient' : 'static',
+        jsx: cachedStaticElements.logo,
         key: 'logo-and-onboarding',
       },
       ...reorderedMessages.map((_, index) => {
@@ -44,9 +74,6 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
         const message =
           _.type === 'progress' ? (
             _.content.message.content[0]?.type === 'text' &&
-              // Hack: TaskTool interrupts use Progress messages, so don't
-              // need an extra ⎿ because <Message /> already adds one.
-              // TODO: Find a cleaner way to do this.
               _.content.message.content[0].text === INTERRUPT_MESSAGE ? (
               <Message
                 message={_.content}
@@ -103,53 +130,15 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
             />
           )
 
-        const type = shouldRenderStatically(
+        // 任务执行期间，所有消息都使用transient模式
+        const shouldBeStatic = shouldRenderStatically(
           _,
           messages,
           unresolvedToolUseIDs,
-        )
-          ? 'static'
-          : 'transient'
-
-        // PowerShell-specific rendering adjustments - 优化Windows终端体验
-        if (process.platform === 'win32' && process.env.PSModulePath) {
-          // 保持动态渲染，但优化性能
-          const isProgressMessage = _.type === 'progress'
-          const hasUnresolvedTool = toolUseID && unresolvedToolUseIDs.has(toolUseID)
-          
-          // 仅对关键消息使用动态渲染
-          const shouldBeDynamic = isProgressMessage || hasUnresolvedTool
-          
-          return {
-            type: shouldBeDynamic ? 'transient' : 'static',
-            jsx: (
-              <Box key={`message-${_.uuid || index}`} width="100%">
-                {message}
-              </Box>
-            ),
-            key: `message-${_.uuid || index}`,
-          }
-        }
-
-        if (debug) {
-          return {
-            type,
-            jsx: (
-              <Box
-                borderStyle="single"
-                borderColor={type === 'static' ? 'green' : 'red'}
-                key={`message-debug-${_.uuid || index}`}
-                width="100%"
-              >
-                {message}
-              </Box>
-            ),
-            key: `message-debug-${_.uuid || index}`,
-          }
-        }
+        ) && !isTaskInProgress
 
         return {
-          type,
+          type: shouldBeStatic ? 'static' : 'transient',
           jsx: (
             <Box key={`message-${_.uuid || index}`} width="100%">
               {message}
@@ -168,7 +157,8 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
     toolJSX,
     toolUseConfirm,
     isMessageSelectorVisible,
-    logoAndOnboarding,
+    cachedStaticElements.logo,
+    cachedStaticElements,
     erroredToolUseIDs,
     inProgressToolUseIDs,
     unresolvedToolUseIDs,
@@ -176,6 +166,7 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
 
   return messagesJSX.map(item => item.jsx)
 }
+
 function shouldRenderStatically(
   message: NormalizedMessage,
   messages: NormalizedMessage[],
@@ -242,10 +233,17 @@ function shouldRenderStatically(
       )
     }
     case 'progress':
-      return !intersects(unresolvedToolUseIDs, message.siblingToolUseIDs)
+      return false
+    default:
+      return true
   }
 }
 
-function intersects<A>(a: Set<A>, b: Set<A>): boolean {
-  return a.size > 0 && b.size > 0 && [...a].some(_ => b.has(_))
+function intersects<T>(setA: Set<T>, setB: Set<T>): boolean {
+  for (const item of setA) {
+    if (setB.has(item)) {
+      return true
+    }
+  }
+  return false
 }

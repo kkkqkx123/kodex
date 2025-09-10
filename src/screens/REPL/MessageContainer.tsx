@@ -1,23 +1,13 @@
-import React, { memo } from 'react'
+import React, { useMemo } from 'react'
 import { MessageRenderer } from './MessageRenderer'
+import { VirtualMessageList } from './VirtualMessageList'
+import { StaticElementManager } from './StaticElementManager'
+import type { MessageContainerProps } from './REPL.types'
 
-interface MessageContainerProps {
-  messages: any[]
-  tools: any[]
-  verbose: boolean
-  debug: boolean
-  forkNumber: number
-  mcpClients?: any[]
-  isDefaultModel?: boolean
-  erroredToolUseIDs: Set<string>
-  inProgressToolUseIDs: Set<string>
-  unresolvedToolUseIDs: Set<string>
-  toolJSX: any
-  toolUseConfirm: any
-  isMessageSelectorVisible: boolean
-}
+// 虚拟化阈值 - 消息超过此数量时启用虚拟化
+const VIRTUALIZATION_THRESHOLD = 15
 
-export const MessageContainer = memo(({
+export const MessageContainer: React.FC<MessageContainerProps> = React.memo(({
   messages,
   tools,
   verbose,
@@ -31,25 +21,75 @@ export const MessageContainer = memo(({
   toolJSX,
   toolUseConfirm,
   isMessageSelectorVisible,
-}: MessageContainerProps) => {
-  // 只有当消息相关的 props 改变时才重新渲染
+}) => {
+  // 获取任务状态
+  const isTaskInProgress = inProgressToolUseIDs.size > 0 || toolJSX || toolUseConfirm
+  
+  // 统一管理的props对象
+  const rendererProps = useMemo(() => ({
+    messages,
+    tools,
+    verbose,
+    debug,
+    forkNumber,
+    mcpClients,
+    isDefaultModel,
+    erroredToolUseIDs,
+    inProgressToolUseIDs,
+    unresolvedToolUseIDs,
+    toolJSX,
+    toolUseConfirm,
+    isMessageSelectorVisible,
+  }), [
+    messages,
+    tools,
+    verbose,
+    debug,
+    forkNumber,
+    mcpClients,
+    isDefaultModel,
+    erroredToolUseIDs,
+    inProgressToolUseIDs,
+    unresolvedToolUseIDs,
+    toolJSX,
+    toolUseConfirm,
+    isMessageSelectorVisible,
+  ])
+
+  // 根据消息数量决定渲染策略
+  const shouldUseVirtualization = messages.length > VIRTUALIZATION_THRESHOLD
+
+  // 任务执行期间，通知StaticElementManager当前状态
+  React.useEffect(() => {
+    StaticElementManager.getInstance().setTaskStatus(isTaskInProgress)
+  }, [isTaskInProgress])
+
+  if (shouldUseVirtualization) {
+    return (
+      <VirtualMessageList
+        {...rendererProps}
+        // 任务执行期间禁用静态元素缓存
+        disableStaticCaching={isTaskInProgress}
+      />
+    )
+  }
+
+  return <MessageRenderer {...rendererProps} />
+}, (prevProps, nextProps) => {
+  // 深度比较，只有当消息相关属性真正变化时才重新渲染
   return (
-    <MessageRenderer
-      messages={messages}
-      tools={tools}
-      verbose={verbose}
-      debug={debug}
-      forkNumber={forkNumber}
-      mcpClients={mcpClients}
-      isDefaultModel={isDefaultModel}
-      erroredToolUseIDs={erroredToolUseIDs}
-      inProgressToolUseIDs={inProgressToolUseIDs}
-      unresolvedToolUseIDs={unresolvedToolUseIDs}
-      toolJSX={toolJSX}
-      toolUseConfirm={toolUseConfirm}
-      isMessageSelectorVisible={isMessageSelectorVisible}
-    />
+    prevProps.messages === nextProps.messages &&
+    prevProps.tools === nextProps.tools &&
+    prevProps.verbose === nextProps.verbose &&
+    prevProps.debug === nextProps.debug &&
+    prevProps.forkNumber === nextProps.forkNumber &&
+    prevProps.mcpClients === nextProps.mcpClients &&
+    prevProps.isDefaultModel === nextProps.isDefaultModel &&
+    prevProps.erroredToolUseIDs === nextProps.erroredToolUseIDs &&
+    prevProps.inProgressToolUseIDs === nextProps.inProgressToolUseIDs &&
+    prevProps.unresolvedToolUseIDs === nextProps.unresolvedToolUseIDs &&
+    prevProps.toolJSX === nextProps.toolJSX &&
+    prevProps.toolUseConfirm === nextProps.toolUseConfirm &&
+    prevProps.isMessageSelectorVisible === nextProps.isMessageSelectorVisible
   )
 })
-
-MessageContainer.displayName = 'MessageContainer'

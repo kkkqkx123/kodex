@@ -189,10 +189,14 @@ export class CompletionStateUtility {
         const actualEndPos = nextSpaceIndex === -1 ? input.length : state.context.startPos + nextSpaceIndex
 
         const newInput = input.slice(0, state.context.startPos) + completion + input.slice(actualEndPos)
+        
+        // 立即清除补全状态，避免UI延迟
+        resetCompletion()
+        
+        // 然后更新输入框
         onInputChange(newInput)
         setCursorOffset(state.context.startPos + completion.length)
       }
-      resetCompletion()
       return true
     }
 
@@ -243,8 +247,9 @@ export class CompletionStateUtility {
 
       if (!state.context) return false
 
-      completeWith(selectedSuggestion, state.context)
+      // 立即清除补全状态，避免UI延迟
       resetCompletion()
+      completeWith(selectedSuggestion, state.context)
 
       if (isDirectory) {
         setTimeout(async () => {
