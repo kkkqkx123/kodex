@@ -61,28 +61,42 @@ export function clearTerminal(): Promise<void> {
         global.inkInstance.rerender(React.createElement('div', {}))
       }
       
-      // Windows需要特殊处理
+      // Windows需要特殊处理 - 增强PowerShell兼容性
       if (process.platform === 'win32') {
-        // Windows使用cls命令
+        // Windows PowerShell优化：使用cls + 滚动缓冲区清理
         const { exec } = require('child_process')
+        
+        // 先尝试cls命令
         exec('cls', (error: any) => {
           if (error) {
-            // 如果cls失败，使用ANSI序列
-            process.stdout.write('\x1b[2J\x1b[3J\x1b[H', () => {
+            // cls失败时使用增强的ANSI序列
+            const enhancedSequence = [
+              '\x1b[2J\x1b[3J\x1b[H', // 标准清除
+              '\x1b[0J', // 清除到屏幕末尾
+              '\x1b[0K', // 清除到行末尾
+              '\x1b[?25l', // 隐藏光标
+              '\x1b[?25h', // 显示光标
+            ].join('')
+            
+            process.stdout.write(enhancedSequence, () => {
               // 再次清理确保完全清除
               if (global.inkInstance) {
                 global.inkInstance.clear()
                 global.inkInstance.rerender(React.createElement('div', {}))
               }
-              setTimeout(resolve, 50)
+              setTimeout(resolve, 100) // 增加等待时间
             })
           } else {
-            // cls成功后再次清理Ink
-            if (global.inkInstance) {
-              global.inkInstance.clear()
-              global.inkInstance.rerender(React.createElement('div', {}))
-            }
-            setTimeout(resolve, 50)
+            // cls成功后，额外清理滚动缓冲区
+            const scrollBufferSequence = '\x1b[2J\x1b[3J\x1b[H'
+            process.stdout.write(scrollBufferSequence, () => {
+              // 清理Ink
+              if (global.inkInstance) {
+                global.inkInstance.clear()
+                global.inkInstance.rerender(React.createElement('div', {}))
+              }
+              setTimeout(resolve, 100)
+            })
           }
         })
       } else {
@@ -94,7 +108,7 @@ export function clearTerminal(): Promise<void> {
             global.inkInstance.clear()
             global.inkInstance.rerender(React.createElement('div', {}))
           }
-          setTimeout(resolve, 50) // 给终端一些处理时间
+          setTimeout(resolve, 100) // 增加等待时间
         })
       }
     } catch (error) {
@@ -354,6 +368,86 @@ export async function recreateInkInstance(): Promise<void> {
     
   } catch (error) {
     console.error('Error recreating ink instance:', error)
+    throw error
+  }
+}
+
+/**
+ * 专门的滚动缓冲区清理函数
+ * 针对Windows PowerShell和Unix终端的滚动缓冲区进行深度清理
+ */
+export async function clearScrollBuffer(): Promise<void> {
+  try {
+    if (process.platform === 'win32') {
+      // Windows PowerShell专用滚动缓冲区清理
+      const { exec } = require('child_process')
+      
+      return new Promise((resolve, reject) => {
+        // 使用PowerShell命令清理滚动缓冲区
+        const psCommand = 'powershell -Command "Clear-Host; [Console]::SetWindowPosition(0, [Console]::CursorTop)"'
+        
+        exec(psCommand, (error: any) => {
+          if (error) {
+            // 如果PowerShell命令失败，使用增强ANSI序列
+            const scrollClearSequence = [
+              '\x1b[2J\x1b[3J\x1b[H', // 标准清除
+              '\x1b[?1049h', // 切换到备用屏幕
+              '\x1b[?1049l', // 恢复主屏幕
+              '\x1b[2J\x1b[3J\x1b[H', // 再次清除
+            ].join('')
+            
+            process.stdout.write(scrollClearSequence, () => {
+              setTimeout(resolve, 150)
+            })
+          } else {
+            setTimeout(resolve, 100)
+          }
+        })
+      })
+    } else {
+      // Unix系统滚动缓冲区清理
+      const scrollClearSequence = [
+        '\x1b[2J\x1b[3J\x1b[H', // 标准清除
+        '\x1b[?1049h', // 切换到备用屏幕
+        '\x1b[?1049l', // 恢复主屏幕
+        '\x1b[2J\x1b[3J\x1b[H', // 再次清除
+      ].join('')
+      
+      process.stdout.write(scrollClearSequence)
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+  } catch (error) {
+    console.error('Error clearing scroll buffer:', error)
+    throw error
+  }
+}
+
+/**
+ * 内容感知的智能清理函数
+ * 根据当前内容长度和终端状态自动选择合适的清理策略
+ */
+export async function smartTerminalCleanup(contentLength?: number): Promise<void> {
+  try {
+    const actualLength = contentLength || 
+      (global.inkInstance ? 10 : 0) // 估算内容长度
+    
+    if (actualLength >= 15) {
+      // 大量内容 - 超激进清理
+      console.log('🧹 执行超激进清理（大量内容）')
+      await ultraTerminalCleanup()
+      await clearScrollBuffer()
+    } else if (actualLength >= 8) {
+      // 中等内容 - 完整清理
+      console.log('🧹 执行完整清理（中等内容）')
+      await completeTerminalCleanup()
+      await clearScrollBuffer()
+    } else {
+      // 少量内容 - 标准清理
+      console.log('🧹 执行标准清理（少量内容）')
+      await clearTerminal()
+    }
+  } catch (error) {
+    console.error('Error during smart terminal cleanup:', error)
     throw error
   }
 }

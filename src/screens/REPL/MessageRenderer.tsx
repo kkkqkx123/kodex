@@ -63,9 +63,14 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
     // 任务执行期间，所有元素都使用transient模式避免刷新
     const isTaskInProgress = inProgressToolUseIDs.size > 0 || toolJSX || toolUseConfirm
     
+    // 内容长度感知：当消息较多时，强制使用transient模式避免Static组件残留
+    const CONTENT_LENGTH_THRESHOLD = 8
+    const shouldForceTransient = messages.length >= CONTENT_LENGTH_THRESHOLD
+    
     return [
       {
-        type: isTaskInProgress ? 'transient' : 'static',
+        // 内容较多时，Logo也使用transient模式
+        type: (isTaskInProgress || shouldForceTransient) ? 'transient' : 'static',
         jsx: cachedStaticElements.logo,
         key: 'logo-and-onboarding',
       },
@@ -130,12 +135,12 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
             />
           )
 
-        // 任务执行期间，所有消息都使用transient模式
+        // 任务执行期间或内容较多时，所有消息都使用transient模式
         const shouldBeStatic = shouldRenderStatically(
           _,
           messages,
           unresolvedToolUseIDs,
-        ) && !isTaskInProgress
+        ) && !isTaskInProgress && !shouldForceTransient
 
         return {
           type: shouldBeStatic ? 'static' : 'transient',

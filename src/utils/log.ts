@@ -53,10 +53,20 @@ export function getMessagesPath(
 
 export function logError(error: unknown): void {
   try {
+    // 终端输出使用简洁格式
     if (process.env.NODE_ENV === 'test') {
       console.error(error)
+    } else {
+      try {
+        const { formatErrorBrief } = require('./errorSummary');
+        console.error(formatErrorBrief(error));
+      } catch {
+        // 如果加载错误摘要工具失败，使用基本格式
+        console.error(error instanceof Error ? error.message : String(error));
+      }
     }
 
+    // 文件记录保持完整信息用于调试
     const errorStr =
       error instanceof Error ? error.stack || error.message : String(error)
 

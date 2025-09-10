@@ -143,10 +143,12 @@ export class PersistentShell {
       
       // Set up error handling
       this.shell.on('error', (error) => {
-        logError(`Shell process error: ${error}`)
+        const { printError } = require('./consoleError');
+        printError(error, 'Shell');
       })
     } catch (error) {
-      console.error(`[ERROR] PersistentShell: Failed to spawn shell: ${error}`)
+      const { printError } = require('./consoleError');
+      printError(error, 'PersistentShell');
       throw error
     }
 
@@ -155,7 +157,8 @@ export class PersistentShell {
     this.shell.on('exit', (code, signal) => {
       if (code) {
         // TODO: It would be nice to alert the user that shell crashed
-        logError(`Shell exited with code ${code} and signal ${signal}`)
+        const { printError } = require('./consoleError');
+        printError(`Shell exited with code ${code}`, 'Shell');
         logEvent('persistent_shell_exit', {
           code: code?.toString() || 'null',
           signal: signal || 'null',

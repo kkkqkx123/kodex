@@ -782,19 +782,8 @@ function formatError(error: unknown): string {
   if (!(error instanceof Error)) {
     return String(error)
   }
-  const parts = [error.message]
-  if ('stderr' in error && typeof error.stderr === 'string') {
-    parts.push(error.stderr)
-  }
-  if ('stdout' in error && typeof error.stdout === 'string') {
-    parts.push(error.stdout)
-  }
-  const fullMessage = parts.filter(Boolean).join('\n')
-  if (fullMessage.length <= 10000) {
-    return fullMessage
-  }
-  const halfLength = 5000
-  const start = fullMessage.slice(0, halfLength)
-  const end = fullMessage.slice(-halfLength)
-  return `${start}\n\n... [${fullMessage.length - 10000} characters truncated] ...\n\n${end}`
+  
+  // 使用简洁的错误摘要
+  const { formatErrorBrief } = require('./utils/errorSummary');
+  return formatErrorBrief(error);
 }

@@ -26,7 +26,7 @@ import {
   setMessagesSetter,
   setModelConfigChangeHandler,
 } from '../messages'
-import { clearTerminal, completeTerminalCleanup } from '../utils/terminal'
+import { clearTerminal, completeTerminalCleanup, ultraTerminalCleanup, smartTerminalCleanup } from '../utils/terminal'
 import { normalizeMessages, isNotEmptyMessage, normalizeMessagesForAPI, getUnresolvedToolUseIDs, getInProgressToolUseIDs, getErroredToolUseMessages } from '../utils/messages'
 import { getGlobalConfig } from '../utils/config'
 import { getOriginalCwd } from '../utils/state'
@@ -251,6 +251,16 @@ export function REPL({
       stateManager.incrementForkNumber()
     })
   }, [stateManager])
+
+  // 自动清理机制 - 监听内容长度变化
+  useEffect(() => {
+    const messageCount = state.messages.length
+    
+    // 使用智能清理机制
+    if (messageCount > 0) {
+      smartTerminalCleanup(messageCount).catch(console.error)
+    }
+  }, [state.messages.length])
 
   // Initial load
   useEffect(() => {
